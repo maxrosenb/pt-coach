@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npm run dev:*)",
+      "Bash(cmd.exe /c \"npm run dev\")",
+      "Bash(powershell.exe -Command \"npm run dev\")",
+      "WebSearch",
+      "WebFetch(domain:chakra-ui.com)",
+      "Bash(npm install:*)",
+      "Bash(wsl node:*)",
+      "Bash(wsl npm --version)",
+      "Bash(wsl bash -c \"source ~/.nvm/nvm.sh && nvm --version\")",
+      "Bash(wsl bash:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
