@@ -126,13 +126,14 @@ export default async function handler(
     const audioBuffer = fs.readFileSync(audioFilePath);
 
     // Convert webm to mp3 for GPT-4o (GPT-4o only supports wav and mp3)
-    mp3Path = audioFilePath + '.mp3';
+    const mp3OutputPath = audioFilePath + '.mp3';
+    mp3Path = mp3OutputPath;
     await new Promise<void>((resolve, reject) => {
       ffmpeg(audioFile.filepath)
         .toFormat('mp3')
         .on('end', () => resolve())
         .on('error', (err) => reject(err))
-        .save(mp3Path);
+        .save(mp3OutputPath);
     });
 
     // Read the converted mp3 file
