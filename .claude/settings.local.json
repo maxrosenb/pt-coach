@@ -11,7 +11,16 @@
       "Bash(wsl node:*)",
       "Bash(wsl npm --version)",
       "Bash(wsl bash -c \"source ~/.nvm/nvm.sh && nvm --version\")",
-      "Bash(wsl bash:*)"
+      "Bash(wsl bash:*)",
+      "Bash(claude mcp add:*)",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_press_key",
+      "mcp__playwright__browser_console_messages",
+      "mcp__playwright__browser_network_requests",
+      "mcp__playwright__browser_evaluate"
     ],
     "deny": [],
     "ask": []

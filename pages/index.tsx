@@ -12,76 +12,26 @@ import {
   Badge,
 } from '@chakra-ui/react';
 import { ColorModeToggle } from '../components/ColorModeToggle';
-
-interface Phrase {
-  id: string;
-  portuguese: string;
-  english: string;
-  category: string;
-  difficulty: 'easy' | 'medium' | 'hard';
-}
+import { DialectWelcomeModal } from '../components/DialectWelcomeModal';
+import { SettingsModal } from '../components/SettingsModal';
+import { FlagIcon } from '../components/FlagIcon';
+import { PHRASES_PT_BR, Phrase } from '../data/phrases-pt-br';
+import { PHRASES_PT_PT } from '../data/phrases-pt-pt';
 
 interface PracticeEntry {
   phraseId: string;
   phrase: string;
   score: number;
   timestamp: number;
+  dialect?: 'pt-BR' | 'pt-PT';
 }
 
-const PHRASES: Phrase[] = [
-  { id: '1', portuguese: 'Bom dia, como você está hoje?', english: 'Good morning, how are you today?', category: 'Greetings', difficulty: 'easy' },
-  { id: '2', portuguese: 'Eu gostaria de um café, por favor.', english: 'I would like a coffee, please.', category: 'Food & Dining', difficulty: 'easy' },
-  { id: '3', portuguese: 'Onde fica a estação de trem mais próxima?', english: 'Where is the nearest train station?', category: 'Travel', difficulty: 'medium' },
-  { id: '4', portuguese: 'Quanto custa este livro aqui?', english: 'How much does this book cost?', category: 'Shopping', difficulty: 'easy' },
-  { id: '5', portuguese: 'Você pode me ajudar, por favor?', english: 'Can you help me, please?', category: 'General', difficulty: 'easy' },
-  { id: '6', portuguese: 'Eu não entendo o que você disse.', english: "I don't understand what you said.", category: 'General', difficulty: 'medium' },
-  { id: '7', portuguese: 'Onde posso comprar um bilhete de ônibus?', english: 'Where can I buy a bus ticket?', category: 'Travel', difficulty: 'medium' },
-  { id: '8', portuguese: 'Qual é o seu nome completo?', english: 'What is your full name?', category: 'Introductions', difficulty: 'easy' },
-  { id: '9', portuguese: 'Eu estou aprendendo português há três meses.', english: 'I have been learning Portuguese for three months.', category: 'Personal', difficulty: 'hard' },
-  { id: '10', portuguese: 'A comida aqui está muito deliciosa.', english: 'The food here is very delicious.', category: 'Food & Dining', difficulty: 'easy' },
-  { id: '11', portuguese: 'Preciso de um médico urgentemente.', english: 'I need a doctor urgently.', category: 'Emergency', difficulty: 'medium' },
-  { id: '12', portuguese: 'Que horas são agora?', english: 'What time is it now?', category: 'General', difficulty: 'easy' },
-  { id: '13', portuguese: 'Eu moro em um apartamento pequeno.', english: 'I live in a small apartment.', category: 'Personal', difficulty: 'medium' },
-  { id: '14', portuguese: 'Você tem alguma sugestão de restaurante?', english: 'Do you have any restaurant suggestions?', category: 'Food & Dining', difficulty: 'medium' },
-  { id: '15', portuguese: 'O tempo está muito bonito hoje.', english: 'The weather is very nice today.', category: 'Small Talk', difficulty: 'easy' },
-  { id: '16', portuguese: 'Eu trabalho como professor de inglês.', english: 'I work as an English teacher.', category: 'Personal', difficulty: 'medium' },
-  { id: '17', portuguese: 'Poderia falar mais devagar, por favor?', english: 'Could you speak more slowly, please?', category: 'General', difficulty: 'hard' },
-  { id: '18', portuguese: 'Eu gosto muito de música brasileira.', english: 'I really like Brazilian music.', category: 'Hobbies', difficulty: 'medium' },
-  { id: '19', portuguese: 'Onde você nasceu e cresceu?', english: 'Where were you born and raised?', category: 'Introductions', difficulty: 'medium' },
-  { id: '20', portuguese: 'Eu preciso ir ao banco agora.', english: 'I need to go to the bank now.', category: 'Daily Life', difficulty: 'easy' },
-  { id: '21', portuguese: 'Você já visitou o Brasil antes?', english: 'Have you visited Brazil before?', category: 'Travel', difficulty: 'medium' },
-  { id: '22', portuguese: 'Minha família mora em Portugal.', english: 'My family lives in Portugal.', category: 'Personal', difficulty: 'easy' },
-  { id: '23', portuguese: 'Eu adoro tomar café da manhã.', english: 'I love having breakfast.', category: 'Food & Dining', difficulty: 'medium' },
-  { id: '24', portuguese: 'Qual é o melhor caminho para o centro?', english: 'What is the best way to downtown?', category: 'Travel', difficulty: 'medium' },
-  { id: '25', portuguese: 'Eu vou viajar na próxima semana.', english: 'I am going to travel next week.', category: 'Travel', difficulty: 'easy' },
-  { id: '26', portuguese: 'Você tem irmãos ou irmãs?', english: 'Do you have brothers or sisters?', category: 'Introductions', difficulty: 'easy' },
-  { id: '27', portuguese: 'Eu acordo todos os dias às sete.', english: 'I wake up every day at seven.', category: 'Daily Life', difficulty: 'medium' },
-  { id: '28', portuguese: 'Esta cidade é muito bonita e limpa.', english: 'This city is very beautiful and clean.', category: 'Small Talk', difficulty: 'medium' },
-  { id: '29', portuguese: 'Eu prefiro chá em vez de café.', english: 'I prefer tea instead of coffee.', category: 'Food & Dining', difficulty: 'medium' },
-  { id: '30', portuguese: 'Vamos jantar juntos hoje à noite?', english: "Let's have dinner together tonight?", category: 'Social', difficulty: 'medium' },
-  { id: '31', portuguese: 'Eu estou com muita fome agora.', english: 'I am very hungry now.', category: 'Food & Dining', difficulty: 'easy' },
-  { id: '32', portuguese: 'Onde você aprendeu a falar português?', english: 'Where did you learn to speak Portuguese?', category: 'Introductions', difficulty: 'hard' },
-  { id: '33', portuguese: 'Eu tenho uma reunião importante amanhã.', english: 'I have an important meeting tomorrow.', category: 'Work', difficulty: 'medium' },
-  { id: '34', portuguese: 'Você pode recomendar um bom hotel?', english: 'Can you recommend a good hotel?', category: 'Travel', difficulty: 'medium' },
-  { id: '35', portuguese: 'Eu gosto de caminhar no parque.', english: 'I like to walk in the park.', category: 'Hobbies', difficulty: 'easy' },
-  { id: '36', portuguese: 'O supermercado fecha às nove da noite.', english: 'The supermarket closes at nine at night.', category: 'Daily Life', difficulty: 'hard' },
-  { id: '37', portuguese: 'Eu não sei como chegar lá.', english: "I don't know how to get there.", category: 'Travel', difficulty: 'medium' },
-  { id: '38', portuguese: 'Você gostaria de sair comigo hoje?', english: 'Would you like to go out with me today?', category: 'Social', difficulty: 'medium' },
-  { id: '39', portuguese: 'Eu tenho dois filhos e uma filha.', english: 'I have two sons and one daughter.', category: 'Personal', difficulty: 'medium' },
-  { id: '40', portuguese: 'A biblioteca fica perto da universidade.', english: 'The library is near the university.', category: 'Directions', difficulty: 'medium' },
-  { id: '41', portuguese: 'Eu sempre leio antes de dormir.', english: 'I always read before sleeping.', category: 'Daily Life', difficulty: 'medium' },
-  { id: '42', portuguese: 'Você conhece algum lugar para dançar?', english: 'Do you know any place to dance?', category: 'Social', difficulty: 'medium' },
-  { id: '43', portuguese: 'Eu preciso comprar frutas e vegetais.', english: 'I need to buy fruits and vegetables.', category: 'Shopping', difficulty: 'medium' },
-  { id: '44', portuguese: 'O ônibus vai passar em dez minutos.', english: 'The bus will pass in ten minutes.', category: 'Travel', difficulty: 'hard' },
-  { id: '45', portuguese: 'Eu quero aprender a cozinhar bem.', english: 'I want to learn to cook well.', category: 'Hobbies', difficulty: 'medium' },
-  { id: '46', portuguese: 'Meu telefone está sem bateria agora.', english: 'My phone is out of battery now.', category: 'Daily Life', difficulty: 'medium' },
-  { id: '47', portuguese: 'Você se sente bem hoje?', english: 'Do you feel well today?', category: 'General', difficulty: 'medium' },
-  { id: '48', portuguese: 'Eu vou à academia três vezes por semana.', english: 'I go to the gym three times a week.', category: 'Hobbies', difficulty: 'hard' },
-  { id: '49', portuguese: 'Podemos nos encontrar na praça central?', english: 'Can we meet at the central square?', category: 'Social', difficulty: 'hard' },
-  { id: '50', portuguese: 'Eu sempre sonho em viajar pelo mundo.', english: 'I always dream of traveling the world.', category: 'Personal', difficulty: 'hard' },
-];
-
 export default function Home() {
+  // Dialect management
+  const [dialect, setDialect] = useState<'pt-BR' | 'pt-PT' | null>(null);
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showIpaDetails, setShowIpaDetails] = useState(false); // Default OFF
   const [currentPhrase, setCurrentPhrase] = useState<Phrase | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [feedback, setFeedback] = useState<string[]>([]);
@@ -92,10 +42,136 @@ export default function Home() {
   const [practiceHistory, setPracticeHistory] = useState<PracticeEntry[]>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [showScoreAnimation, setShowScoreAnimation] = useState(false);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
+  const [isPlayingRecording, setIsPlayingRecording] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recordingAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+
+  // Get current phrase set based on dialect
+  const getCurrentPhrases = (): Phrase[] => {
+    return dialect === 'pt-PT' ? PHRASES_PT_PT : PHRASES_PT_BR;
+  };
+
+  // Get dialect info
+  const getDialectInfo = () => {
+    if (dialect === 'pt-PT') {
+      return {
+        flagCode: 'PT' as const,
+        name: 'European Portuguese',
+      };
+    }
+    return {
+      flagCode: 'BR' as const,
+      name: 'Brazilian Portuguese',
+    };
+  };
+
+  // Handle dialect selection from welcome modal
+  const handleDialectSelection = (selectedDialect: 'pt-BR' | 'pt-PT') => {
+    setDialect(selectedDialect);
+    localStorage.setItem('portuguese-dialect', selectedDialect);
+    setShowWelcomeModal(false);
+  };
+
+  // Handle dialect change from settings
+  const handleDialectChange = (newDialect: 'pt-BR' | 'pt-PT') => {
+    if (newDialect === dialect) return;
+
+    setDialect(newDialect);
+    localStorage.setItem('portuguese-dialect', newDialect);
+
+    // Clear current feedback and get new phrase from new dialect
+    setFeedback([]);
+    setScore(null);
+    setTranscript('');
+    setError('');
+
+    // Get a new phrase from the new dialect set
+    const phrases = newDialect === 'pt-PT' ? PHRASES_PT_PT : PHRASES_PT_BR;
+    const randomIndex = Math.floor(Math.random() * phrases.length);
+    setCurrentPhrase(phrases[randomIndex]);
+  };
+
+  // Handle IPA details toggle
+  const handleIpaDetailsChange = (show: boolean) => {
+    setShowIpaDetails(show);
+    localStorage.setItem('show-ipa-details', show.toString());
+  };
+
+  // Filter IPA references from feedback for simpler display
+  const filterIpaFromFeedback = (feedbackText: string): string => {
+    if (showIpaDetails) {
+      return feedbackText; // Show as-is if IPA details enabled
+    }
+
+    let filtered = feedbackText;
+
+    // Remove IPA transcriptions in parentheses like (/ˈmũj̃.tu/)
+    filtered = filtered.replace(/\([\/\[]?[\p{Letter}\p{Mark}\s.ˈˌ:]+[\/\]]?\)/gu, '');
+
+    // Remove IPA in square brackets like [ɐ̃]
+    filtered = filtered.replace(/\[[\p{Letter}\p{Mark}\/]+\]/gu, '');
+
+    // Replace individual IPA symbols in slashes with plain text
+    const ipaReplacements: { [key: string]: string } = {
+      '/ɾ/': '"soft r" sound',
+      '/ʁ/': '"guttural r" sound',
+      '/r/': '"rolled r" sound',
+      '/ɐ̃/': '"nasal a" sound',
+      '/ẽ/': '"nasal e" sound',
+      '/ĩ/': '"nasal i" sound',
+      '/õ/': '"nasal o" sound',
+      '/ũ/': '"nasal u" sound',
+      '/ɐ/': '"a" sound',
+      '/ɛ/': '"open e" sound',
+      '/e/': '"closed e" sound',
+      '/i/': '"i" sound',
+      '/ɔ/': '"open o" sound',
+      '/o/': '"closed o" sound',
+      '/u/': '"u" sound',
+      '/ʃ/': '"sh" sound',
+      '/ʒ/': '"zh" sound',
+      '/ɲ/': '"nh" sound',
+      '/ʎ/': '"lh" sound',
+    };
+
+    Object.entries(ipaReplacements).forEach(([ipa, text]) => {
+      filtered = filtered.replace(new RegExp(ipa.replace(/[/\\]/g, '\\$&'), 'g'), text);
+    });
+
+    // Remove any remaining IPA in slashes
+    filtered = filtered.replace(/\/[\p{Letter}\p{Mark}]+\//gu, '');
+
+    // Clean up extra spaces and punctuation
+    filtered = filtered.replace(/\s+/g, ' ').trim();
+    filtered = filtered.replace(/\s+,/g, ',');
+    filtered = filtered.replace(/\s+\./g, '.');
+
+    return filtered;
+  };
+
+  // Check for saved dialect and IPA details preference on mount
+  useEffect(() => {
+    const savedDialect = localStorage.getItem('portuguese-dialect') as 'pt-BR' | 'pt-PT' | null;
+    if (savedDialect) {
+      setDialect(savedDialect);
+    } else {
+      setShowWelcomeModal(true);
+    }
+
+    // Load IPA details preference (default OFF if not set)
+    const savedIpaDetails = localStorage.getItem('show-ipa-details');
+    if (savedIpaDetails === 'true') {
+      setShowIpaDetails(true);
+    }
+  }, []);
 
   // Play TTS audio
   const playAudio = async () => {
@@ -146,6 +222,44 @@ export default function Home() {
     }
   };
 
+  // Play recorded audio
+  const playRecording = async () => {
+    if (!recordedAudioUrl || isPlayingRecording) return;
+
+    console.log('Attempting to play recorded audio:', recordedAudioUrl);
+
+    try {
+      setIsPlayingRecording(true);
+
+      // Stop any existing recording playback
+      if (recordingAudioRef.current) {
+        recordingAudioRef.current.pause();
+        recordingAudioRef.current = null;
+      }
+
+      const audio = new Audio(recordedAudioUrl);
+      recordingAudioRef.current = audio;
+
+      audio.onended = () => {
+        console.log('Recording playback ended');
+        setIsPlayingRecording(false);
+      };
+
+      audio.onerror = (e) => {
+        console.error('Error playing recorded audio:', e);
+        setIsPlayingRecording(false);
+        setError('Failed to play recording');
+      };
+
+      await audio.play();
+      console.log('Recording playback started');
+    } catch (err) {
+      console.error('Error playing recording:', err);
+      setIsPlayingRecording(false);
+      setError('Failed to play recording');
+    }
+  };
+
   // Load practice history from localStorage
   useEffect(() => {
     const stored = localStorage.getItem('practiceHistory');
@@ -165,6 +279,7 @@ export default function Home() {
       phrase,
       score,
       timestamp: Date.now(),
+      dialect: dialect || undefined,
     };
 
     const newHistory = [entry, ...practiceHistory].slice(0, 50); // Keep last 50
@@ -173,11 +288,14 @@ export default function Home() {
   };
 
   const getRandomPhrase = () => {
+    if (!dialect) return; // Wait for dialect to be set
+
+    const phrases = getCurrentPhrases();
     let newPhrase: Phrase;
     do {
-      const randomIndex = Math.floor(Math.random() * PHRASES.length);
-      newPhrase = PHRASES[randomIndex];
-    } while (currentPhrase && newPhrase.id === currentPhrase.id && PHRASES.length > 1);
+      const randomIndex = Math.floor(Math.random() * phrases.length);
+      newPhrase = phrases[randomIndex];
+    } while (currentPhrase && newPhrase.id === currentPhrase.id && phrases.length > 1);
 
     setCurrentPhrase(newPhrase);
     setFeedback([]);
@@ -186,10 +304,34 @@ export default function Home() {
     setError('');
   };
 
-  // Set initial random phrase on mount
+  // Set initial random phrase when dialect is selected
   useEffect(() => {
-    const randomIndex = Math.floor(Math.random() * PHRASES.length);
-    setCurrentPhrase(PHRASES[randomIndex]);
+    if (dialect && !currentPhrase) {
+      getRandomPhrase();
+    }
+  }, [dialect]);
+
+  // Cleanup audio resources on unmount
+  useEffect(() => {
+    return () => {
+      // Clean up timers
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+      }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+
+      // Clean up audio context
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+      }
+
+      // Clean up recorded audio URL
+      if (recordedAudioUrl) {
+        URL.revokeObjectURL(recordedAudioUrl);
+      }
+    };
   }, []);
 
   // Keyboard shortcuts
@@ -221,30 +363,132 @@ export default function Home() {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [isRecording, isLoading, currentPhrase]);
 
+  // Voice activity detection - monitors audio levels
+  const monitorAudioLevels = () => {
+    if (!analyserRef.current) return;
+
+    const analyser = analyserRef.current;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    const SILENCE_THRESHOLD = 10; // Volume threshold (0-255)
+    const SILENCE_DURATION = 1500; // 1.5 seconds of silence before auto-stop
+
+    const checkAudioLevel = () => {
+      analyser.getByteFrequencyData(dataArray);
+
+      // Calculate average volume
+      const average = dataArray.reduce((sum, value) => sum + value, 0) / bufferLength;
+
+      if (average < SILENCE_THRESHOLD) {
+        // Detected silence - start/continue timer
+        if (!silenceTimeoutRef.current) {
+          silenceTimeoutRef.current = setTimeout(() => {
+            // Still silent after timeout - auto stop
+            stopRecording();
+          }, SILENCE_DURATION);
+        }
+      } else {
+        // Detected sound - clear silence timer
+        if (silenceTimeoutRef.current) {
+          clearTimeout(silenceTimeoutRef.current);
+          silenceTimeoutRef.current = null;
+        }
+      }
+
+      // Continue monitoring
+      if (isRecording) {
+        animationFrameRef.current = requestAnimationFrame(checkAudioLevel);
+      }
+    };
+
+    checkAudioLevel();
+  };
+
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Get list of audio input devices for debugging
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputs = devices.filter(device => device.kind === 'audioinput');
+      console.log('Available audio inputs:', audioInputs);
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,  // Disable - can reduce speech clarity
+          noiseSuppression: false,  // Disable - we want natural speech
+          autoGainControl: false,   // Disable - can distort pronunciation
+          sampleRate: 48000,        // High quality sample rate
+        }
+      });
+
+      // Log which device is being used
+      const tracks = stream.getAudioTracks();
+      console.log('Using audio track:', tracks[0]?.label, tracks[0]?.getSettings());
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
+      // Set up audio analysis for silence detection
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.8;
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
       mediaRecorder.ondataavailable = (event) => {
+        console.log('Audio data received, size:', event.data.size);
         audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
+        console.log('Recording stopped, chunks:', audioChunksRef.current.length);
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        console.log('Created audio blob, size:', audioBlob.size);
+
+        // Check if recording is too small (likely silence or muted mic)
+        if (audioBlob.size < 1000) { // Less than 1KB is probably silence
+          setError('Recording is too quiet. Please check that your microphone is unmuted and try again.');
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        // Clean up old recording URL
+        if (recordedAudioUrl) {
+          URL.revokeObjectURL(recordedAudioUrl);
+        }
+
+        // Save recording for playback
+        const audioUrl = URL.createObjectURL(audioBlob);
+        console.log('Created audio URL for playback:', audioUrl);
+        setRecordedAudioUrl(audioUrl);
+
         await sendAudioForFeedback(audioBlob);
 
         stream.getTracks().forEach((track) => track.stop());
+
+        // Clean up audio analysis
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+        analyserRef.current = null;
       };
 
       mediaRecorder.start();
+      console.log('Recording started');
       setIsRecording(true);
       setError('');
       setFeedback([]);
       setScore(null);
       setTranscript('');
+
+      // Start monitoring audio levels for silence detection
+      monitorAudioLevels();
     } catch (err: any) {
       console.error('Error accessing microphone:', err);
 
@@ -262,13 +506,25 @@ export default function Home() {
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
+      // Clear silence detection timers
+      if (silenceTimeoutRef.current) {
+        clearTimeout(silenceTimeoutRef.current);
+        silenceTimeoutRef.current = null;
+      }
+
+      // Stop animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
       mediaRecorderRef.current.stop();
       setIsRecording(false);
     }
   };
 
   const sendAudioForFeedback = async (audioBlob: Blob) => {
-    if (!currentPhrase) return;
+    if (!currentPhrase || !dialect) return;
 
     setIsLoading(true);
     setError('');
@@ -277,6 +533,7 @@ export default function Home() {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
       formData.append('phraseId', currentPhrase.id);
+      formData.append('dialect', dialect);
 
       const response = await fetch('/api/feedback', {
         method: 'POST',
@@ -346,8 +603,26 @@ export default function Home() {
   };
 
   return (
-    <Box minH="100vh" bg={{ base: 'gray.50', _dark: 'gray.900' }}>
-      {/* Header */}
+    <>
+      {/* Welcome Modal for First-Time Users */}
+      {showWelcomeModal && (
+        <DialectWelcomeModal onSelectDialect={handleDialectSelection} />
+      )}
+
+      {/* Settings Modal */}
+      {dialect && (
+        <SettingsModal
+          isOpen={showSettingsModal}
+          onClose={() => setShowSettingsModal(false)}
+          currentDialect={dialect}
+          onDialectChange={handleDialectChange}
+          showIpaDetails={showIpaDetails}
+          onIpaDetailsChange={handleIpaDetailsChange}
+        />
+      )}
+
+      <Box minH="100vh" bg={{ base: 'gray.50', _dark: 'gray.900' }}>
+        {/* Header */}
       <Box
         bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
         position="relative"
@@ -385,20 +660,55 @@ export default function Home() {
                     letterSpacing="tight"
                     textShadow="0 2px 10px rgba(0,0,0,0.2)"
                   >
+                    {dialect && <Box as="span" mr={3}><FlagIcon country={getDialectInfo().flagCode} size="1.2em" /></Box>}
                     Portuguese Coach
                   </Heading>
                 </Box>
-                <Text
-                  color="whiteAlpha.900"
-                  fontSize={{ base: 'sm', md: 'md' }}
-                  fontWeight="medium"
-                  textShadow="0 1px 2px rgba(0,0,0,0.1)"
-                >
-                  Master your pronunciation with AI-powered feedback
-                </Text>
+                <VStack gap={1}>
+                  <Text
+                    color="whiteAlpha.900"
+                    fontSize={{ base: 'sm', md: 'md' }}
+                    fontWeight="medium"
+                    textShadow="0 1px 2px rgba(0,0,0,0.1)"
+                  >
+                    Master your pronunciation with AI-powered feedback
+                  </Text>
+                  {dialect && (
+                    <Text
+                      color="whiteAlpha.800"
+                      fontSize={{ base: 'xs', md: 'sm' }}
+                      fontWeight="semibold"
+                      textShadow="0 1px 2px rgba(0,0,0,0.1)"
+                    >
+                      {getDialectInfo().name}
+                    </Text>
+                  )}
+                </VStack>
               </VStack>
             </Box>
-            <Box flex={1} display="flex" justifyContent="flex-end">
+            <Box flex={1} display="flex" justifyContent="flex-end" gap={2}>
+              <Button
+                onClick={() => setShowSettingsModal(true)}
+                size="md"
+                borderRadius="full"
+                bg="whiteAlpha.200"
+                backdropFilter="blur(10px)"
+                color="white"
+                border="1px solid"
+                borderColor="whiteAlpha.300"
+                _hover={{
+                  bg: 'whiteAlpha.300',
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                }}
+                _active={{ transform: 'translateY(0)' }}
+                transition="all 0.2s"
+                fontWeight="bold"
+                fontSize="sm"
+                px={4}
+              >
+                ⚙️ Settings
+              </Button>
               <ColorModeToggle />
             </Box>
           </HStack>
@@ -506,31 +816,33 @@ export default function Home() {
                     >
                       {currentPhrase.english}
                     </Text>
-                    <Button
-                      size="md"
-                      onClick={playAudio}
-                      disabled={isPlayingAudio || isRecording}
-                      bg="whiteAlpha.200"
-                      backdropFilter="blur(10px)"
-                      color="white"
-                      borderRadius="full"
-                      border="1px solid"
-                      borderColor="whiteAlpha.300"
-                      _hover={{
-                        bg: 'whiteAlpha.300',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      }}
-                      _active={{ transform: 'translateY(0)' }}
-                      transition="all 0.2s"
-                      fontWeight="bold"
-                      fontSize="sm"
-                      px={6}
-                      py={6}
-                      position="relative"
-                    >
-                      {isPlayingAudio ? '🔊 Playing...' : '🔊 Hear Pronunciation'}
-                    </Button>
+                    {(feedback.length > 0 || score !== null) && (
+                      <Button
+                        size="md"
+                        onClick={playAudio}
+                        disabled={isPlayingAudio || isRecording}
+                        bg="whiteAlpha.200"
+                        backdropFilter="blur(10px)"
+                        color="white"
+                        borderRadius="full"
+                        border="1px solid"
+                        borderColor="whiteAlpha.300"
+                        _hover={{
+                          bg: 'whiteAlpha.300',
+                          transform: 'translateY(-2px)',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        }}
+                        _active={{ transform: 'translateY(0)' }}
+                        transition="all 0.2s"
+                        fontWeight="bold"
+                        fontSize="sm"
+                        px={6}
+                        py={6}
+                        position="relative"
+                      >
+                        {isPlayingAudio ? '🔊 Playing...' : '🔊 Hear Native Pronunciation'}
+                      </Button>
+                    )}
                   </Box>
 
                   {/* Controls */}
@@ -595,6 +907,17 @@ export default function Home() {
                         </Button>
                       )}
 
+                      {isRecording && (
+                        <Text
+                          fontSize="xs"
+                          color={{ base: 'gray.500', _dark: 'gray.400' }}
+                          textAlign="center"
+                          fontWeight="medium"
+                        >
+                          💡 Recording will automatically stop after 1.5s of silence
+                        </Text>
+                      )}
+
                       {(feedback.length > 0 || score !== null) && (
                         <Button
                           variant="outline"
@@ -606,6 +929,10 @@ export default function Home() {
                             setScore(null);
                             setTranscript('');
                             setError('');
+                            if (recordedAudioUrl) {
+                              URL.revokeObjectURL(recordedAudioUrl);
+                              setRecordedAudioUrl(null);
+                            }
                           }}
                           disabled={isRecording || isLoading}
                           borderRadius="xl"
@@ -816,9 +1143,30 @@ export default function Home() {
                           What you said
                         </Text>
                       </HStack>
-                      <Text fontSize="xl" fontWeight="semibold" color={{ base: 'gray.900', _dark: 'white' }} lineHeight="tall">
+                      <Text fontSize="xl" fontWeight="semibold" color={{ base: 'gray.900', _dark: 'white' }} lineHeight="tall" mb={3}>
                         "{transcript}"
                       </Text>
+                      {recordedAudioUrl && (
+                        <Button
+                          onClick={playRecording}
+                          size="sm"
+                          borderRadius="lg"
+                          bg={{ base: 'blue.100', _dark: 'blue.900' }}
+                          color={{ base: 'blue.700', _dark: 'blue.100' }}
+                          fontWeight="semibold"
+                          fontSize="xs"
+                          px={4}
+                          py={2}
+                          _hover={{
+                            bg: { base: 'blue.200', _dark: 'blue.800' },
+                            transform: 'translateY(-1px)',
+                          }}
+                          transition="all 0.2s"
+                          disabled={isPlayingRecording}
+                        >
+                          {isPlayingRecording ? '▶️ Playing...' : '▶️ Hear Your Recording'}
+                        </Button>
+                      )}
                     </Box>
                   )}
 
@@ -877,7 +1225,7 @@ export default function Home() {
                                 color={{ base: 'gray.800', _dark: 'gray.100' }}
                                 fontWeight="medium"
                               >
-                                {tip}
+                                {filterIpaFromFeedback(tip)}
                               </Text>
                             </HStack>
                           </Box>
@@ -1073,6 +1421,7 @@ export default function Home() {
           </VStack>
         </Container>
       </Box>
-    </Box>
+      </Box>
+    </>
   );
 }

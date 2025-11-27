@@ -10,7 +10,7 @@ export default async function handler(
   }
 
   try {
-    const { text } = req.body;
+    const { text, dialect } = req.body;
 
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
@@ -20,9 +20,12 @@ export default async function handler(
       apiKey: process.env.OPENAI_API_KEY,
     });
 
+    // Use tts-1-hd for higher quality, more natural voice
+    // 'onyx' provides a warm, natural male voice good for Portuguese
+    // 'nova' provides a warm female voice
     const mp3 = await openai.audio.speech.create({
-      model: 'tts-1',
-      voice: 'nova', // Female voice that works well for Portuguese
+      model: 'tts-1-hd',
+      voice: 'onyx',
       input: text,
       speed: 0.9, // Slightly slower for learning
     });

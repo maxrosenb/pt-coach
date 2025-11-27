@@ -44,7 +44,7 @@ export function ColorModeToggle() {
       fontSize="sm"
       px={4}
     >
-      {colorMode === 'light' ? '🌙 Dark Mode' : '☀️ Light Mode'}
+      {colorMode === 'light' ? '🌙 Dark' : '☀️ Light'}
     </Button>
   );
 }

@@ -1,0 +1,61 @@
+export interface Phrase {
+  id: string;
+  portuguese: string;
+  english: string;
+  category: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  ipa: string; // IPA transcription for pronunciation
+}
+
+export const PHRASES_PT_BR: Phrase[] = [
+  { id: 'br1', portuguese: 'Bom dia, como você está hoje?', english: 'Good morning, how are you today?', category: 'Greetings', difficulty: 'easy', ipa: 'bõ ˈd͡ʒi.ɐ, ˈko.mu vo.ˈse es.ˈta o.ˈʒi' },
+  { id: 'br2', portuguese: 'Eu gostaria de um café, por favor.', english: 'I would like a coffee, please.', category: 'Food & Dining', difficulty: 'easy', ipa: 'ew gos.ta.ˈɾi.ɐ d͡ʒi ũ ka.ˈfɛ, puɾ fa.ˈvoɾ' },
+  { id: 'br3', portuguese: 'Onde fica a estação de trem mais próxima?', english: 'Where is the nearest train station?', category: 'Travel', difficulty: 'medium', ipa: 'ˈõ.d͡ʒi ˈfi.kɐ a es.ta.ˈsɐ̃w̃ d͡ʒi tɾẽj̃ majs ˈpɾɔ.si.mɐ' },
+  { id: 'br4', portuguese: 'Quanto custa este livro aqui?', english: 'How much does this book cost?', category: 'Shopping', difficulty: 'easy', ipa: 'ˈkwɐ̃.tu ˈkus.tɐ ˈes.t͡ʃi ˈli.vɾu a.ˈki' },
+  { id: 'br5', portuguese: 'Você pode me ajudar, por favor?', english: 'Can you help me, please?', category: 'General', difficulty: 'easy', ipa: 'vo.ˈse ˈpɔ.d͡ʒi mi a.ʒu.ˈdaɾ, puɾ fa.ˈvoɾ' },
+  { id: 'br6', portuguese: 'Eu não entendo o que você disse.', english: "I don't understand what you said.", category: 'General', difficulty: 'medium', ipa: 'ew nɐ̃w̃ ẽ.ˈtẽ.du u ki vo.ˈse ˈd͡ʒi.si' },
+  { id: 'br7', portuguese: 'Onde posso comprar um bilhete de ônibus?', english: 'Where can I buy a bus ticket?', category: 'Travel', difficulty: 'medium', ipa: 'ˈõ.d͡ʒi ˈpɔ.su kõ.ˈpɾaɾ ũ bi.ˈʎɛ.t͡ʃi d͡ʒi ˈo.ni.bus' },
+  { id: 'br8', portuguese: 'Qual é o seu nome completo?', english: 'What is your full name?', category: 'Introductions', difficulty: 'easy', ipa: 'kwaw ɛ u sew ˈno.mi kõ.ˈple.tu' },
+  { id: 'br9', portuguese: 'Eu estou aprendendo português há três meses.', english: 'I have been learning Portuguese for three months.', category: 'Personal', difficulty: 'hard', ipa: 'ew es.ˈto a.pɾẽ.ˈdẽ.du poɾ.tu.ˈges a tɾes ˈme.zis' },
+  { id: 'br10', portuguese: 'A comida aqui está muito gostosa.', english: 'The food here is very delicious.', category: 'Food & Dining', difficulty: 'easy', ipa: 'a ko.ˈmi.dɐ a.ˈki es.ˈta ˈmũj̃.tu gos.ˈto.zɐ' },
+  { id: 'br11', portuguese: 'Preciso de um médico urgentemente.', english: 'I need a doctor urgently.', category: 'Emergency', difficulty: 'medium', ipa: 'pɾe.ˈsi.zu d͡ʒi ũ ˈmɛ.d͡ʒi.ku uɾ.ˈʒẽ.t͡ʃi.mẽ.t͡ʃi' },
+  { id: 'br12', portuguese: 'Que horas são agora?', english: 'What time is it now?', category: 'General', difficulty: 'easy', ipa: 'ki ˈɔ.ɾɐs sɐ̃w̃ a.ˈgɔ.ɾɐ' },
+  { id: 'br13', portuguese: 'Eu moro em um apartamento pequeno.', english: 'I live in a small apartment.', category: 'Personal', difficulty: 'medium', ipa: 'ew ˈmɔ.ɾu ẽj̃ ũ a.paɾ.ta.ˈmẽ.tu pe.ˈke.nu' },
+  { id: 'br14', portuguese: 'Você tem alguma sugestão de restaurante?', english: 'Do you have any restaurant suggestions?', category: 'Food & Dining', difficulty: 'medium', ipa: 'vo.ˈse tẽj̃ aw.ˈgu.mɐ su.ʒes.ˈtɐ̃w̃ d͡ʒi ʁes.taw.ˈɾɐ̃.t͡ʃi' },
+  { id: 'br15', portuguese: 'O tempo está muito bonito hoje.', english: 'The weather is very nice today.', category: 'Small Talk', difficulty: 'easy', ipa: 'u ˈtẽ.pu es.ˈta ˈmũj̃.tu bo.ˈni.tu o.ˈʒi' },
+  { id: 'br16', portuguese: 'Eu trabalho como professor de inglês.', english: 'I work as an English teacher.', category: 'Personal', difficulty: 'medium', ipa: 'ew tɾa.ˈba.ʎu ˈko.mu pɾo.fe.ˈsoɾ d͡ʒi ĩ.ˈgles' },
+  { id: 'br17', portuguese: 'Poderia falar mais devagar, por favor?', english: 'Could you speak more slowly, please?', category: 'General', difficulty: 'hard', ipa: 'po.de.ˈɾi.ɐ fa.ˈlaɾ majs de.va.ˈgaɾ, puɾ fa.ˈvoɾ' },
+  { id: 'br18', portuguese: 'Eu gosto muito de música brasileira.', english: 'I really like Brazilian music.', category: 'Hobbies', difficulty: 'medium', ipa: 'ew ˈgos.tu ˈmũj̃.tu d͡ʒi ˈmu.zi.kɐ bɾa.zi.ˈlej.ɾɐ' },
+  { id: 'br19', portuguese: 'Onde você nasceu e cresceu?', english: 'Where were you born and raised?', category: 'Introductions', difficulty: 'medium', ipa: 'ˈõ.d͡ʒi vo.ˈse na.ˈsew i kɾe.ˈsew' },
+  { id: 'br20', portuguese: 'Eu preciso ir ao banco agora.', english: 'I need to go to the bank now.', category: 'Daily Life', difficulty: 'easy', ipa: 'ew pɾe.ˈsi.zu iɾ aw ˈbɐ̃.ku a.ˈgɔ.ɾɐ' },
+  { id: 'br21', portuguese: 'Você já visitou o Brasil antes?', english: 'Have you visited Brazil before?', category: 'Travel', difficulty: 'medium', ipa: 'vo.ˈse ʒa vi.zi.ˈtow u bɾa.ˈziw ɐ̃.ˈt͡ʃis' },
+  { id: 'br22', portuguese: 'Minha família mora em São Paulo.', english: 'My family lives in São Paulo.', category: 'Personal', difficulty: 'easy', ipa: 'ˈmĩ.ɲɐ fa.ˈmi.li.ɐ ˈmɔ.ɾɐ ẽj̃ sɐ̃w̃ ˈpaw.lu' },
+  { id: 'br23', portuguese: 'Eu adoro tomar café da manhã.', english: 'I love having breakfast.', category: 'Food & Dining', difficulty: 'medium', ipa: 'ew a.ˈdɔ.ɾu to.ˈmaɾ ka.ˈfɛ dɐ mɐ.ˈɲɐ̃' },
+  { id: 'br24', portuguese: 'Qual é o melhor caminho para o centro?', english: 'What is the best way to downtown?', category: 'Travel', difficulty: 'medium', ipa: 'kwaw ɛ u me.ˈʎoɾ ka.ˈmĩ.ɲu ˈpa.ɾɐ u ˈsẽ.tɾu' },
+  { id: 'br25', portuguese: 'Eu vou viajar na próxima semana.', english: 'I am going to travel next week.', category: 'Travel', difficulty: 'easy', ipa: 'ew vow vi.a.ˈʒaɾ nɐ ˈpɾɔ.si.mɐ se.ˈmɐ̃.nɐ' },
+  { id: 'br26', portuguese: 'Você tem irmãos ou irmãs?', english: 'Do you have brothers or sisters?', category: 'Introductions', difficulty: 'easy', ipa: 'vo.ˈse tẽj̃ iɾ.ˈmɐ̃w̃s ow iɾ.ˈmɐ̃s' },
+  { id: 'br27', portuguese: 'Eu acordo todos os dias às sete horas.', english: 'I wake up every day at seven.', category: 'Daily Life', difficulty: 'medium', ipa: 'ew a.ˈkɔɾ.du ˈto.dus us ˈd͡ʒi.ɐs as ˈsɛ.t͡ʃi ˈɔ.ɾɐs' },
+  { id: 'br28', portuguese: 'Esta cidade é muito bonita e limpa.', english: 'This city is very beautiful and clean.', category: 'Small Talk', difficulty: 'medium', ipa: 'ˈes.tɐ si.ˈda.d͡ʒi ɛ ˈmũj̃.tu bo.ˈni.tɐ i ˈlĩ.pɐ' },
+  { id: 'br29', portuguese: 'Eu prefiro chá em vez de café.', english: 'I prefer tea instead of coffee.', category: 'Food & Dining', difficulty: 'medium', ipa: 'ew pɾe.ˈfi.ɾu ʃa ẽj̃ ves d͡ʒi ka.ˈfɛ' },
+  { id: 'br30', portuguese: 'Vamos jantar juntos hoje à noite?', english: "Let's have dinner together tonight?", category: 'Social', difficulty: 'medium', ipa: 'ˈvɐ̃.mus ʒɐ̃.ˈtaɾ ˈʒũ.tus o.ˈʒi a ˈnoj.t͡ʃi' },
+  { id: 'br31', portuguese: 'Eu estou com muita fome agora.', english: 'I am very hungry now.', category: 'Food & Dining', difficulty: 'easy', ipa: 'ew es.ˈto kõ ˈmũj̃.tɐ ˈfo.mi a.ˈgɔ.ɾɐ' },
+  { id: 'br32', portuguese: 'Onde você aprendeu a falar português?', english: 'Where did you learn to speak Portuguese?', category: 'Introductions', difficulty: 'hard', ipa: 'ˈõ.d͡ʒi vo.ˈse a.pɾẽ.ˈdew a fa.ˈlaɾ poɾ.tu.ˈges' },
+  { id: 'br33', portuguese: 'Eu tenho uma reunião importante amanhã.', english: 'I have an important meeting tomorrow.', category: 'Work', difficulty: 'medium', ipa: 'ew ˈtẽ.ɲu ˈu.mɐ ʁe.u.ni.ˈɐ̃w̃ ĩ.poɾ.ˈtɐ̃.t͡ʃi a.mɐ.ˈɲɐ̃' },
+  { id: 'br34', portuguese: 'Você pode recomendar um bom hotel?', english: 'Can you recommend a good hotel?', category: 'Travel', difficulty: 'medium', ipa: 'vo.ˈse ˈpɔ.d͡ʒi ʁe.ko.mẽ.ˈdaɾ ũ bõ o.ˈtɛw' },
+  { id: 'br35', portuguese: 'Eu gosto de caminhar no parque.', english: 'I like to walk in the park.', category: 'Hobbies', difficulty: 'easy', ipa: 'ew ˈgos.tu d͡ʒi ka.mĩ.ˈɲaɾ nu ˈpaɾ.ki' },
+  { id: 'br36', portuguese: 'O supermercado fecha às nove da noite.', english: 'The supermarket closes at nine at night.', category: 'Daily Life', difficulty: 'hard', ipa: 'u su.peɾ.meɾ.ˈka.du ˈfe.ʃɐ as ˈnɔ.vi dɐ ˈnoj.t͡ʃi' },
+  { id: 'br37', portuguese: 'Eu não sei como chegar lá.', english: "I don't know how to get there.", category: 'Travel', difficulty: 'medium', ipa: 'ew nɐ̃w̃ sej ˈko.mu ʃe.ˈgaɾ la' },
+  { id: 'br38', portuguese: 'Você gostaria de sair comigo hoje?', english: 'Would you like to go out with me today?', category: 'Social', difficulty: 'medium', ipa: 'vo.ˈse gos.ta.ˈɾi.ɐ d͡ʒi sa.ˈiɾ ko.ˈmi.gu o.ˈʒi' },
+  { id: 'br39', portuguese: 'Eu tenho dois filhos e uma filha.', english: 'I have two sons and one daughter.', category: 'Personal', difficulty: 'medium', ipa: 'ew ˈtẽ.ɲu dojs ˈfi.ʎus i ˈu.mɐ ˈfi.ʎɐ' },
+  { id: 'br40', portuguese: 'A biblioteca fica perto da universidade.', english: 'The library is near the university.', category: 'Directions', difficulty: 'medium', ipa: 'a bi.bli.o.ˈtɛ.kɐ ˈfi.kɐ ˈpeɾ.tu dɐ u.ni.veɾ.si.ˈda.d͡ʒi' },
+  { id: 'br41', portuguese: 'Eu sempre leio antes de dormir.', english: 'I always read before sleeping.', category: 'Daily Life', difficulty: 'medium', ipa: 'ew ˈsẽ.pɾi ˈlej.u ˈɐ̃.t͡ʃis d͡ʒi doɾ.ˈmiɾ' },
+  { id: 'br42', portuguese: 'Você conhece algum lugar para dançar?', english: 'Do you know any place to dance?', category: 'Social', difficulty: 'medium', ipa: 'vo.ˈse ko.ˈɲe.si aw.ˈgũ lu.ˈgaɾ ˈpa.ɾɐ dɐ̃.ˈsaɾ' },
+  { id: 'br43', portuguese: 'Eu preciso comprar frutas e legumes.', english: 'I need to buy fruits and vegetables.', category: 'Shopping', difficulty: 'medium', ipa: 'ew pɾe.ˈsi.zu kõ.ˈpɾaɾ ˈfɾu.tɐs i le.ˈgu.mis' },
+  { id: 'br44', portuguese: 'O ônibus vai passar em dez minutos.', english: 'The bus will pass in ten minutes.', category: 'Travel', difficulty: 'hard', ipa: 'u ˈo.ni.bus vaj pa.ˈsaɾ ẽj̃ dɛs mi.ˈnu.tus' },
+  { id: 'br45', portuguese: 'Eu quero aprender a cozinhar melhor.', english: 'I want to learn to cook better.', category: 'Hobbies', difficulty: 'medium', ipa: 'ew ˈkɛ.ɾu a.pɾẽ.ˈdeɾ a ko.zĩ.ˈɲaɾ me.ˈʎoɾ' },
+  { id: 'br46', portuguese: 'Meu celular está sem bateria agora.', english: 'My phone is out of battery now.', category: 'Daily Life', difficulty: 'medium', ipa: 'mew se.lu.ˈlaɾ es.ˈta sẽj̃ ba.te.ˈɾi.ɐ a.ˈgɔ.ɾɐ' },
+  { id: 'br47', portuguese: 'Você está se sentindo bem hoje?', english: 'Are you feeling well today?', category: 'General', difficulty: 'medium', ipa: 'vo.ˈse es.ˈta si sẽ.ˈt͡ʃĩ.du bẽj̃ o.ˈʒi' },
+  { id: 'br48', portuguese: 'Eu vou à academia três vezes por semana.', english: 'I go to the gym three times a week.', category: 'Hobbies', difficulty: 'hard', ipa: 'ew vow a a.ka.de.ˈmi.ɐ tɾes ˈve.zis puɾ se.ˈmɐ̃.nɐ' },
+  { id: 'br49', portuguese: 'Podemos nos encontrar na praça central?', english: 'Can we meet at the central square?', category: 'Social', difficulty: 'hard', ipa: 'po.ˈde.mus nus ẽ.kõ.ˈtɾaɾ nɐ ˈpɾa.sɐ sẽ.ˈtɾaw' },
+  { id: 'br50', portuguese: 'Eu sempre sonho em viajar pelo mundo.', english: 'I always dream of traveling the world.', category: 'Personal', difficulty: 'hard', ipa: 'ew ˈsẽ.pɾi ˈso.ɲu ẽj̃ vi.a.ˈʒaɾ ˈpe.lu ˈmũ.du' },
+];
