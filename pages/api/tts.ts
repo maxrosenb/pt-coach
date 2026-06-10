@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import OpenAI from 'openai';
+import { synthesizeValidatedSpeech } from '../../lib/speech';
 import { PHRASES_PT_BR } from '../../data/phrases-pt-br';
 import { PHRASES_PT_PT } from '../../data/phrases-pt-pt';
 
@@ -29,9 +30,10 @@ export default async function handler(
     }
     const dialectKey = dialect === 'pt-PT' ? 'pt-PT' : 'pt-BR';
 
-    // Cached on disk per phrase: TTS is deterministic enough for a practice
-    // clip, and repeat listens should be fast and free.
-    const cachePath = path.join(os.tmpdir(), `pt-coach-listen-${dialectKey}-${phraseId}.mp3`);
+    // Cached on disk per phrase — only clips that passed validation are ever
+    // written, so a one-time bad generation can't become permanent. The v2 in
+    // the name evicts unvalidated caches from older deploys.
+    const cachePath = path.join(os.tmpdir(), `pt-coach-listen-v2-${dialectKey}-${phraseId}.mp3`);
     if (fs.existsSync(cachePath)) {
       const cached = fs.readFileSync(cachePath);
       res.setHeader('Content-Type', 'audio/mpeg');
@@ -43,16 +45,15 @@ export default async function handler(
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    // 'onyx' provides a warm, natural male voice good for Portuguese
-    const mp3 = await openai.audio.speech.create({
-      model: 'tts-1-hd',
+    // 'onyx' provides a warm, natural male voice good for Portuguese;
+    // slightly slower for learning
+    const { buffer, validated } = await synthesizeValidatedSpeech(openai, text, {
       voice: 'onyx',
-      input: text,
-      speed: 0.9, // Slightly slower for learning
+      speed: 0.9,
     });
-
-    const buffer = Buffer.from(await mp3.arrayBuffer());
-    fs.writeFileSync(cachePath, buffer);
+    if (validated) {
+      fs.writeFileSync(cachePath, buffer);
+    }
 
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Content-Length', buffer.length);

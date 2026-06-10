@@ -16,6 +16,7 @@ import {
   ScoreBreakdown,
   WordResult,
 } from '../../lib/pronunciation';
+import { synthesizeValidatedSpeech } from '../../lib/speech';
 
 // Set ffmpeg path
 ffmpeg.setFfmpegPath(ffmpegPath.path);
@@ -133,7 +134,11 @@ function claimRefutedByHeardIpa(
   const saidNasal = heardToken.normalize('NFD').includes('̃');
   const saidTap = heardToken.includes('ɾ');
 
-  if (saidPalatal && (category === 'palatalization' || /hard.{0,12}\b[dt]\b|\bdj\b|jeans|\btch\b|cheese/i.test(claimText))) {
+  if (
+    saidPalatal &&
+    (category === 'palatalization' ||
+      /(?:hard|english|plain).{0,12}\b[dt]\b|\bdj\b|\btch\b|\bch\b|jeans|cheese/i.test(claimText))
+  ) {
     return true;
   }
   if (saidNasal && category === 'nasal-vowels' && /missing|no nasal|not nasal|lack|forgot/i.test(claimText)) {
@@ -518,26 +523,27 @@ Respond with ONLY this JSON (no markdown, no extra text):
 // Pipeline stages
 // ---------------------------------------------------------------------------
 
-// Native reference audio, cached on disk per phrase (TTS is deterministic enough
-// for comparison purposes and this keeps repeat attempts fast and cheap).
+// Native reference audio, cached on disk per phrase. Generations are
+// validated (transcribe-checked) before caching: a garbled reference clip
+// would silently corrupt the scoring baseline for every attempt at that
+// phrase. v2 evicts unvalidated caches from older deploys.
 async function getReferenceAudioBase64(
   openai: OpenAI,
   phraseId: string,
   dialect: string,
   text: string
 ): Promise<string> {
-  const cachePath = path.join(os.tmpdir(), `pt-coach-ref-${dialect}-${phraseId}.mp3`);
+  const cachePath = path.join(os.tmpdir(), `pt-coach-ref-v2-${dialect}-${phraseId}.mp3`);
   if (fs.existsSync(cachePath)) {
     return fs.readFileSync(cachePath).toString('base64');
   }
-  const mp3 = await openai.audio.speech.create({
-    model: 'tts-1-hd',
+  const { buffer, validated } = await synthesizeValidatedSpeech(openai, text, {
     voice: 'onyx',
-    input: text,
     speed: 1.0,
   });
-  const buffer = Buffer.from(await mp3.arrayBuffer());
-  fs.writeFileSync(cachePath, buffer);
+  if (validated) {
+    fs.writeFileSync(cachePath, buffer);
+  }
   return buffer.toString('base64');
 }
 
@@ -1044,7 +1050,12 @@ function inferCategoryFromText(text: string, isBrazilian: boolean): ErrorCategor
   const t = text.toLowerCase();
   if (/nasal/.test(t)) return 'nasal-vowels';
   // Palatalization is Brazilian-only; for pt-PT a "dj" mention is a vowel/consonant issue
-  if (isBrazilian && /\bdj\b|\btch\b|palatal|jeans|cheese/.test(t)) return 'palatalization';
+  if (
+    isBrazilian &&
+    /\bdj\b|\btch\b|\bch\b|palatal|jeans|cheese|(?:hard|english|plain)[^a-z]{0,3}[dt]\b/.test(t)
+  ) {
+    return 'palatalization';
+  }
   if (/\br\b|r sound|tap|guttural|retroflex|rolled/.test(t)) return 'r-sounds';
   if (/\bsh\b|s sound/.test(t)) return 's-sounds';
   if (/stress|rhythm|emphasis|syllable/.test(t)) return 'stress-rhythm';
@@ -1174,7 +1185,9 @@ function ensureErrorCoverage(
   comparison: ComparisonResult | null,
   azure: AzureAssessment | null,
   target: string,
-  isBrazilian: boolean
+  isBrazilian: boolean,
+  ipaByWord: Map<string, string> | null,
+  heardIpaByWord: Map<string, string> | null
 ): PronunciationError[] {
   const covered = new Set(errors.map(e => normalizeWord(e.word)));
   const result = [...errors];
@@ -1185,11 +1198,35 @@ function ensureErrorCoverage(
     if (covered.has(norm)) continue;
     covered.add(norm);
 
-    const difference =
+    let difference =
       comparison?.ratings.find(r => normalizeWord(r.word) === norm)?.difference || '';
     const azureWord = azure?.words.find(x => normalizeWord(x.word) === norm);
 
-    const category = inferCategoryFromText(difference, isBrazilian);
+    let category = inferCategoryFromText(difference, isBrazilian);
+    // These cards bypass the coaching-claim verification, so apply the same
+    // evidence guards here: if the target IPA or the blind listener's IPA of
+    // what the learner ACTUALLY said disproves the judge's claim, never
+    // repeat it — fall back to neutral word-level wording instead.
+    if (difference) {
+      const wordIpa = ipaByWord?.get(norm) ?? null;
+      const heardToken = heardIpaByWord?.get(norm) ?? null;
+      if (
+        claimContradictsIpa(category, w.word, wordIpa, difference) ||
+        claimRefutedByHeardIpa(category, difference, heardToken)
+      ) {
+        difference = '';
+        category = 'other';
+      } else if (
+        isBrazilian &&
+        category === 'r-sounds' &&
+        isCodaOnlyR(w.word) &&
+        /english|curl|retroflex/i.test(difference)
+      ) {
+        // A coda r that sounds English is native in Brazil — keep the r
+        // guidance but drop the accusation
+        difference = '';
+      }
+    }
     const coaching = fallbackCoaching(category, w.word, isBrazilian);
     result.push({
       word: w.word,
@@ -1483,7 +1520,9 @@ export default async function handler(
       comparison,
       azure,
       targetPhrase.portuguese,
-      isBrazilian
+      isBrazilian,
+      buildWordIpaMap(targetPhrase.portuguese, targetPhrase.ipa),
+      blind ? buildWordIpaMap(targetPhrase.portuguese, blind.ipa) : null
     );
 
     const analysis: PronunciationAnalysis = {
