@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import Head from 'next/head';
 import {
   Box,
   Container,
@@ -6,10 +7,9 @@ import {
   Button,
   VStack,
   HStack,
+  Flex,
   Text,
-  Card,
   Spinner,
-  Badge,
 } from '@chakra-ui/react';
 import { ColorModeToggle } from '../components/ColorModeToggle';
 import { DialectWelcomeModal } from '../components/DialectWelcomeModal';
@@ -17,6 +17,13 @@ import { SettingsModal } from '../components/SettingsModal';
 import { FlagIcon } from '../components/FlagIcon';
 import { PHRASES_PT_BR, Phrase } from '../data/phrases-pt-br';
 import { PHRASES_PT_PT } from '../data/phrases-pt-pt';
+import {
+  PronunciationAnalysis,
+  ErrorCategory,
+  CATEGORY_LABELS,
+  CATEGORY_ADVICE,
+} from '../lib/pronunciation';
+import { az, SOLID, SERIF, TILE_BG } from '../lib/azulejo';
 
 interface PracticeEntry {
   phraseId: string;
@@ -24,7 +31,144 @@ interface PracticeEntry {
   score: number;
   timestamp: number;
   dialect?: 'pt-BR' | 'pt-PT';
+  categories?: ErrorCategory[];
 }
+
+// --- Azulejo design helpers -------------------------------------------------
+
+function SectionLabel({ pt, en }: { pt: string; en: string }) {
+  return (
+    <HStack gap={2} mb={4}>
+      <Text color={az.gold} fontSize="2xs">◆</Text>
+      <Text
+        fontSize="xs"
+        fontWeight="bold"
+        textTransform="uppercase"
+        letterSpacing="0.18em"
+        color={az.inkSoft}
+      >
+        <Box as="span" color={az.ink}>{pt}</Box>
+        {'  ·  '}
+        {en}
+      </Text>
+    </HStack>
+  );
+}
+
+function TileDivider() {
+  return (
+    <HStack gap={3} w="full" px={{ base: 8, md: 14 }}>
+      <Box flex={1} h="1px" bg={az.cardLine} />
+      <Text color={az.gold} fontSize="2xs" lineHeight={1}>◆</Text>
+      <Text color={az.cobalt} fontSize="xs" lineHeight={1}>❖</Text>
+      <Text color={az.gold} fontSize="2xs" lineHeight={1}>◆</Text>
+      <Box flex={1} h="1px" bg={az.cardLine} />
+    </HStack>
+  );
+}
+
+function Key({ children }: { children: string }) {
+  return (
+    <Box
+      as="kbd"
+      px={2}
+      py={0.5}
+      borderWidth="1px"
+      borderColor={az.cardLine}
+      borderRadius="md"
+      bg={az.cardBg}
+      fontSize="2xs"
+      fontWeight="bold"
+      color={az.inkSoft}
+    >
+      {children}
+    </Box>
+  );
+}
+
+const scoreTone = (s: number) => {
+  if (s >= 85) return { fg: az.sage, wash: az.sageWash, line: az.sageLine };
+  if (s >= 70) return { fg: az.cobalt, wash: az.cobaltWash, line: az.cobaltLine };
+  if (s >= 55) return { fg: az.ochre, wash: az.ochreWash, line: az.ochreLine };
+  return { fg: az.terra, wash: az.terraWash, line: az.terraLine };
+};
+
+function Meter({
+  labelPt,
+  labelEn,
+  hint,
+  value,
+}: {
+  labelPt: string;
+  labelEn: string;
+  hint: string;
+  value: number;
+}) {
+  const tone = scoreTone(value);
+  return (
+    <Box
+      flex={1}
+      p={4}
+      bg={az.washBg}
+      borderWidth="1px"
+      borderColor={az.cardLine}
+      borderRadius="lg"
+    >
+      <Flex justify="space-between" align="baseline" mb={2} gap={2}>
+        <Text
+          fontSize="2xs"
+          fontWeight="bold"
+          textTransform="uppercase"
+          letterSpacing="0.14em"
+          color={az.inkSoft}
+        >
+          <Box as="span" color={az.ink}>{labelPt}</Box> · {labelEn}
+        </Text>
+        <Text fontFamily={SERIF} fontWeight={700} color={tone.fg}>
+          {value}
+        </Text>
+      </Flex>
+      <Box h="6px" bg={az.cardLine} borderRadius="full" overflow="hidden" mb={2}>
+        <Box
+          h="full"
+          w={`${value}%`}
+          bg={tone.fg}
+          borderRadius="full"
+          transition="width 0.6s ease-out"
+        />
+      </Box>
+      <Text fontSize="2xs" color={az.inkFaint}>{hint}</Text>
+    </Box>
+  );
+}
+
+const LOADING_STEPS = [
+  { pt: 'A ouvir a sua gravação…', en: 'Transcribing exactly what you said' },
+  { pt: 'A comparar com um nativo…', en: 'Comparing each word against a native speaker' },
+  { pt: 'A preparar o seu feedback…', en: 'Writing your coaching notes' },
+];
+
+const scoreVerdict = (s: number) => {
+  if (s >= 90) return { pt: 'Excelente!', en: 'Native-like — beautiful work' };
+  if (s >= 80) return { pt: 'Muito bem!', en: 'A strong attempt' };
+  if (s >= 70) return { pt: 'Bom trabalho', en: 'Good — now refine the details' };
+  if (s >= 60) return { pt: 'Quase lá', en: "You're getting there" };
+  return { pt: 'Continue!', en: 'Keep practicing — it will come' };
+};
+
+const DIFFICULTY_TONE = {
+  easy: az.sage,
+  medium: az.ochre,
+  hard: az.terra,
+} as const;
+
+const WORD_TILE_STYLES = {
+  good: { bg: az.sageWash, color: az.sage, borderColor: az.sageLine },
+  minor: { bg: az.ochreWash, color: az.ochre, borderColor: az.ochreLine },
+  major: { bg: az.terraWash, color: az.terra, borderColor: az.terraLine },
+} as const;
+
+// -----------------------------------------------------------------------------
 
 export default function Home() {
   // Dialect management
@@ -35,6 +179,7 @@ export default function Home() {
   const [currentPhrase, setCurrentPhrase] = useState<Phrase | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [feedback, setFeedback] = useState<string[]>([]);
+  const [analysis, setAnalysis] = useState<PronunciationAnalysis | null>(null);
   const [score, setScore] = useState<number | null>(null);
   const [transcript, setTranscript] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -44,6 +189,19 @@ export default function Home() {
   const [showScoreAnimation, setShowScoreAnimation] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState<string | null>(null);
   const [isPlayingRecording, setIsPlayingRecording] = useState(false);
+  const [loadingStep, setLoadingStep] = useState(0);
+
+  // Step the loading message through the pipeline stages
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingStep(0);
+      return;
+    }
+    const id = setInterval(() => {
+      setLoadingStep((s) => Math.min(s + 1, LOADING_STEPS.length - 1));
+    }, 4500);
+    return () => clearInterval(id);
+  }, [isLoading]);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -53,6 +211,22 @@ export default function Home() {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const silenceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const waveformCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [highlightedError, setHighlightedError] = useState<number | null>(null);
+
+  // Mirror for the unmount cleanup, whose [] -dep closure would otherwise
+  // only ever see the initial null
+  const recordedAudioUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    recordedAudioUrlRef.current = recordedAudioUrl;
+  }, [recordedAudioUrl]);
+
+  // Dialect-tinted accent: warm gold for Brazil, cobalt for Portugal
+  const accent =
+    dialect === 'pt-PT'
+      ? { fg: az.cobalt, line: az.cobaltLine, wash: az.cobaltWash }
+      : { fg: az.gold, line: az.goldLine, wash: az.goldWash };
 
   // Get current phrase set based on dialect
   const getCurrentPhrases = (): Phrase[] => {
@@ -88,10 +262,7 @@ export default function Home() {
     localStorage.setItem('portuguese-dialect', newDialect);
 
     // Clear current feedback and get new phrase from new dialect
-    setFeedback([]);
-    setScore(null);
-    setTranscript('');
-    setError('');
+    clearResults();
 
     // Get a new phrase from the new dialect set
     const phrases = newDialect === 'pt-PT' ? PHRASES_PT_PT : PHRASES_PT_BR;
@@ -173,32 +344,48 @@ export default function Home() {
     }
   }, []);
 
-  // Play TTS audio
+  // Stop all app audio (native clip + recording playback)
+  const stopPlayback = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (recordingAudioRef.current) {
+      recordingAudioRef.current.pause();
+      recordingAudioRef.current = null;
+    }
+    setIsPlayingAudio(false);
+    setIsPlayingRecording(false);
+  };
+
+  // Play TTS audio (blob URLs cached per phrase so repeat listens are instant)
+  const ttsCacheRef = useRef<Map<string, string>>(new Map());
+
   const playAudio = async () => {
     if (!currentPhrase || isPlayingAudio) return;
 
     try {
+      stopPlayback();
       setIsPlayingAudio(true);
 
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: currentPhrase.portuguese }),
-      });
+      const cacheKey = `${dialect}-${currentPhrase.id}`;
+      let audioUrl = ttsCacheRef.current.get(cacheKey);
+      if (!audioUrl) {
+        const response = await fetch('/api/tts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ phraseId: currentPhrase.id, dialect }),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to generate audio');
-      }
+        if (!response.ok) {
+          throw new Error('Failed to generate audio');
+        }
 
-      const audioBlob = await response.blob();
-      const audioUrl = URL.createObjectURL(audioBlob);
-
-      // Stop any existing audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
+        const audioBlob = await response.blob();
+        audioUrl = URL.createObjectURL(audioBlob);
+        ttsCacheRef.current.set(cacheKey, audioUrl);
       }
 
       const audio = new Audio(audioUrl);
@@ -206,7 +393,6 @@ export default function Home() {
 
       audio.onended = () => {
         setIsPlayingAudio(false);
-        URL.revokeObjectURL(audioUrl);
       };
 
       audio.onerror = () => {
@@ -226,33 +412,23 @@ export default function Home() {
   const playRecording = async () => {
     if (!recordedAudioUrl || isPlayingRecording) return;
 
-    console.log('Attempting to play recorded audio:', recordedAudioUrl);
-
     try {
+      stopPlayback();
       setIsPlayingRecording(true);
-
-      // Stop any existing recording playback
-      if (recordingAudioRef.current) {
-        recordingAudioRef.current.pause();
-        recordingAudioRef.current = null;
-      }
 
       const audio = new Audio(recordedAudioUrl);
       recordingAudioRef.current = audio;
 
       audio.onended = () => {
-        console.log('Recording playback ended');
         setIsPlayingRecording(false);
       };
 
-      audio.onerror = (e) => {
-        console.error('Error playing recorded audio:', e);
+      audio.onerror = () => {
         setIsPlayingRecording(false);
         setError('Failed to play recording');
       };
 
       await audio.play();
-      console.log('Recording playback started');
     } catch (err) {
       console.error('Error playing recording:', err);
       setIsPlayingRecording(false);
@@ -273,18 +449,41 @@ export default function Home() {
   }, []);
 
   // Save to history
-  const savePracticeEntry = (phraseId: string, phrase: string, score: number) => {
+  const savePracticeEntry = (
+    phraseId: string,
+    phrase: string,
+    score: number,
+    categories?: ErrorCategory[]
+  ) => {
     const entry: PracticeEntry = {
       phraseId,
       phrase,
       score,
       timestamp: Date.now(),
       dialect: dialect || undefined,
+      categories,
     };
 
     const newHistory = [entry, ...practiceHistory].slice(0, 50); // Keep last 50
     setPracticeHistory(newHistory);
     localStorage.setItem('practiceHistory', JSON.stringify(newHistory));
+  };
+
+  // Revoke and drop the recorded-audio URL (functional update avoids stale closures)
+  const clearRecordedAudio = () => {
+    setRecordedAudioUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+  };
+
+  const clearResults = () => {
+    setFeedback([]);
+    setAnalysis(null);
+    setScore(null);
+    setTranscript('');
+    setError('');
+    clearRecordedAudio();
   };
 
   const getRandomPhrase = () => {
@@ -298,10 +497,7 @@ export default function Home() {
     } while (currentPhrase && newPhrase.id === currentPhrase.id && phrases.length > 1);
 
     setCurrentPhrase(newPhrase);
-    setFeedback([]);
-    setScore(null);
-    setTranscript('');
-    setError('');
+    clearResults();
   };
 
   // Set initial random phrase when dialect is selected
@@ -321,6 +517,9 @@ export default function Home() {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
 
       // Clean up audio context
       if (audioContextRef.current) {
@@ -328,9 +527,13 @@ export default function Home() {
       }
 
       // Clean up recorded audio URL
-      if (recordedAudioUrl) {
-        URL.revokeObjectURL(recordedAudioUrl);
+      if (recordedAudioUrlRef.current) {
+        URL.revokeObjectURL(recordedAudioUrlRef.current);
       }
+
+      // Clean up cached TTS blob URLs
+      ttsCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
+      ttsCacheRef.current.clear();
     };
   }, []);
 
@@ -339,6 +542,11 @@ export default function Home() {
     const handleKeyPress = (e: KeyboardEvent) => {
       // Ignore if user is typing in an input field
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Ignore while a modal is open
+      if (showWelcomeModal || showSettingsModal) {
         return;
       }
 
@@ -361,9 +569,44 @@ export default function Home() {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [isRecording, isLoading, currentPhrase]);
+  }, [isRecording, isLoading, currentPhrase, showWelcomeModal, showSettingsModal]);
 
-  // Voice activity detection - monitors audio levels
+  // Live waveform: frequency bars drawn on the recording canvas each frame
+  const drawWaveform = (data: Uint8Array) => {
+    const canvas = waveformCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    const cssWidth = canvas.clientWidth;
+    const cssHeight = canvas.clientHeight;
+    if (canvas.width !== cssWidth * dpr || canvas.height !== cssHeight * dpr) {
+      canvas.width = cssWidth * dpr;
+      canvas.height = cssHeight * dpr;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const BARS = 48;
+    const usable = Math.floor(data.length / 3); // speech lives in the lower bins
+    const step = Math.max(1, Math.floor(usable / BARS));
+    const barWidth = canvas.width / BARS;
+    ctx.fillStyle = '#B14E2C'; // terracotta — reads on both cream and navy
+
+    for (let i = 0; i < BARS; i++) {
+      let sum = 0;
+      for (let j = 0; j < step; j++) sum += data[i * step + j];
+      const level = sum / step / 255;
+      const barHeight = Math.max(2 * dpr, level * canvas.height * 0.9);
+      const x = i * barWidth + barWidth * 0.25;
+      const y = (canvas.height - barHeight) / 2;
+      ctx.fillRect(x, y, barWidth * 0.5, barHeight);
+    }
+  };
+
+  // Voice activity detection + waveform rendering. The loop runs until the
+  // recording stops (cancelAnimationFrame in stopRecording / analyser teardown)
+  // rather than checking the isRecording state, which is stale in this closure.
   const monitorAudioLevels = () => {
     if (!analyserRef.current) return;
 
@@ -375,6 +618,8 @@ export default function Home() {
     const SILENCE_DURATION = 1500; // 1.5 seconds of silence before auto-stop
 
     const checkAudioLevel = () => {
+      if (!analyserRef.current) return; // recording torn down
+
       analyser.getByteFrequencyData(dataArray);
 
       // Calculate average volume
@@ -396,10 +641,9 @@ export default function Home() {
         }
       }
 
-      // Continue monitoring
-      if (isRecording) {
-        animationFrameRef.current = requestAnimationFrame(checkAudioLevel);
-      }
+      drawWaveform(dataArray);
+
+      animationFrameRef.current = requestAnimationFrame(checkAudioLevel);
     };
 
     checkAudioLevel();
@@ -407,10 +651,8 @@ export default function Home() {
 
   const startRecording = async () => {
     try {
-      // Get list of audio input devices for debugging
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const audioInputs = devices.filter(device => device.kind === 'audioinput');
-      console.log('Available audio inputs:', audioInputs);
+      // Stop the native clip / playback first — the mic must not record it
+      stopPlayback();
 
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -420,10 +662,6 @@ export default function Home() {
           sampleRate: 48000,        // High quality sample rate
         }
       });
-
-      // Log which device is being used
-      const tracks = stream.getAudioTracks();
-      console.log('Using audio track:', tracks[0]?.label, tracks[0]?.getSettings());
 
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -441,49 +679,42 @@ export default function Home() {
       analyserRef.current = analyser;
 
       mediaRecorder.ondataavailable = (event) => {
-        console.log('Audio data received, size:', event.data.size);
         audioChunksRef.current.push(event.data);
       };
 
       mediaRecorder.onstop = async () => {
-        console.log('Recording stopped, chunks:', audioChunksRef.current.length);
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        console.log('Created audio blob, size:', audioBlob.size);
-
-        // Check if recording is too small (likely silence or muted mic)
-        if (audioBlob.size < 1000) { // Less than 1KB is probably silence
-          setError('Recording is too quiet. Please check that your microphone is unmuted and try again.');
-          stream.getTracks().forEach((track) => track.stop());
-          return;
-        }
-
-        // Clean up old recording URL
-        if (recordedAudioUrl) {
-          URL.revokeObjectURL(recordedAudioUrl);
-        }
-
-        // Save recording for playback
-        const audioUrl = URL.createObjectURL(audioBlob);
-        console.log('Created audio URL for playback:', audioUrl);
-        setRecordedAudioUrl(audioUrl);
-
-        await sendAudioForFeedback(audioBlob);
-
+        // Tear down the stream and audio analysis on every path
         stream.getTracks().forEach((track) => track.stop());
-
-        // Clean up audio analysis
         if (audioContextRef.current) {
           audioContextRef.current.close();
           audioContextRef.current = null;
         }
         analyserRef.current = null;
+
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+
+        // Check if recording is too small (likely silence or muted mic)
+        if (audioBlob.size < 1000) { // Less than 1KB is probably silence
+          setError('Recording is too quiet. Please check that your microphone is unmuted and try again.');
+          return;
+        }
+
+        // Save recording for playback; functional update so we revoke the
+        // actual previous URL, not a stale closure value
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setRecordedAudioUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return audioUrl;
+        });
+
+        await sendAudioForFeedback(audioBlob);
       };
 
       mediaRecorder.start();
-      console.log('Recording started');
       setIsRecording(true);
       setError('');
       setFeedback([]);
+      setAnalysis(null);
       setScore(null);
       setTranscript('');
 
@@ -505,7 +736,9 @@ export default function Home() {
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    // Check the recorder's own state, not React state: this is called from the
+    // silence-detection timeout, whose closure captured a stale isRecording.
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       // Clear silence detection timers
       if (silenceTimeoutRef.current) {
         clearTimeout(silenceTimeoutRef.current);
@@ -552,7 +785,9 @@ export default function Home() {
       }
 
       const data = await response.json();
+      const analysisData: PronunciationAnalysis | null = data.analysis ?? null;
       setFeedback(data.feedback || []);
+      setAnalysis(analysisData);
       setTranscript(data.transcript || '');
 
       // Animate score reveal
@@ -563,7 +798,10 @@ export default function Home() {
 
       // Save to practice history
       if (data.score !== null && data.score !== undefined && currentPhrase) {
-        savePracticeEntry(currentPhrase.id, currentPhrase.portuguese, data.score);
+        const errorCategories = analysisData
+          ? Array.from(new Set(analysisData.errors.map((e) => e.category)))
+          : undefined;
+        savePracticeEntry(currentPhrase.id, currentPhrase.portuguese, data.score, errorCategories);
       }
     } catch (err: any) {
       console.error('Error getting feedback:', err);
@@ -580,30 +818,86 @@ export default function Home() {
     }
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 90) return 'green';
-    if (score >= 80) return 'blue';
-    if (score >= 70) return 'yellow';
-    if (score >= 60) return 'orange';
-    return 'red';
+  // Most frequent error categories across recent practice (top 3).
+  // Only entries for the current dialect — the advice differs (e.g.
+  // palatalization is Brazilian-only).
+  const getFocusAreas = (): [ErrorCategory, number][] => {
+    const counts = new Map<ErrorCategory, number>();
+    practiceHistory
+      .filter((entry) => !entry.dialect || entry.dialect === dialect)
+      .slice(0, 20)
+      .forEach((entry) => {
+        (entry.categories || []).forEach((cat) => {
+          counts.set(cat, (counts.get(cat) || 0) + 1);
+        });
+      });
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3);
   };
 
-  const getScoreEmoji = (score: number) => {
-    if (score >= 90) return '🌟';
-    if (score >= 80) return '🎉';
-    if (score >= 70) return '👍';
-    if (score >= 60) return '💪';
-    return '📚';
+  const hasResults = feedback.length > 0 || score !== null;
+  const focusAreas = getFocusAreas();
+
+  // Click a flagged word tile → scroll to (and flash) its coaching card
+  const normalizeWordClient = (w: string) =>
+    w.toLowerCase().replace(/[.,!?;:"'“”‘’()]/g, '');
+
+  const scrollToErrorCard = (word: string) => {
+    if (!analysis) return;
+    const idx = analysis.errors.findIndex(
+      (e) => normalizeWordClient(e.word) === normalizeWordClient(word)
+    );
+    if (idx === -1) return;
+    document
+      .getElementById(`work-on-card-${idx}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedError(idx);
+    if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    highlightTimeoutRef.current = setTimeout(() => setHighlightedError(null), 1600);
   };
 
-  const getDifficultyColor = (difficulty: 'easy' | 'medium' | 'hard') => {
-    if (difficulty === 'easy') return 'green';
-    if (difficulty === 'medium') return 'yellow';
-    return 'red';
+  const resetAttempt = () => {
+    clearResults();
+  };
+
+  // Click a recent attempt → load that phrase again (switching dialect if needed)
+  const practiceAgain = (entry: PracticeEntry) => {
+    const entryDialect = entry.dialect || 'pt-BR';
+    const phrases = entryDialect === 'pt-PT' ? PHRASES_PT_PT : PHRASES_PT_BR;
+    const phrase = phrases.find((p) => p.id === entry.phraseId);
+    if (!phrase) return;
+
+    if (entryDialect !== dialect) {
+      setDialect(entryDialect);
+      localStorage.setItem('portuguese-dialect', entryDialect);
+    }
+    setCurrentPhrase(phrase);
+    clearResults();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const timeAgo = (ts: number) => {
+    const minutes = Math.floor((Date.now() - ts) / 60000);
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return new Date(ts).toLocaleDateString();
   };
 
   return (
     <>
+      <Head>
+        <title>Fala Bem · Portuguese Pronunciation Coach</title>
+        <meta
+          name="description"
+          content="Practice Brazilian and European Portuguese pronunciation with detailed, word-by-word AI feedback."
+        />
+      </Head>
+
       {/* Welcome Modal for First-Time Users */}
       {showWelcomeModal && (
         <DialectWelcomeModal onSelectDialect={handleDialectSelection} />
@@ -621,806 +915,1016 @@ export default function Home() {
         />
       )}
 
-      <Box minH="100vh" bg={{ base: 'gray.50', _dark: 'gray.900' }}>
+      <Box minH="100vh" bg={az.pageBg}>
         {/* Header */}
-      <Box
-        bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-        position="relative"
-        overflow="hidden"
-        boxShadow="0 10px 40px -10px rgba(102, 126, 234, 0.4)"
-      >
-        {/* Background Pattern */}
         <Box
-          position="absolute"
-          inset={0}
-          opacity={0.1}
-          bgImage="radial-gradient(circle at 2px 2px, white 1px, transparent 0)"
-          bgSize="40px 40px"
-        />
+          as="header"
+          position="relative"
+          overflow="hidden"
+          borderBottomWidth="1px"
+          borderColor={az.cardLine}
+        >
+          {/* Heritage double rule */}
+          <Box h="5px" bg={SOLID.gold} />
+          <Box h="2px" bg={SOLID.cobalt} />
+          {/* Faint tile field */}
+          <Box
+            position="absolute"
+            inset={0}
+            bgImage={TILE_BG}
+            bgSize="56px 56px"
+            opacity={{ base: 0.06, _dark: 0.1 }}
+            pointerEvents="none"
+          />
 
-        <Container maxW="container.lg" py={8} position="relative">
-          <HStack justifyContent="space-between" alignItems="start" mb={2}>
-            <Box flex={1} />
-            <Box flex={1} display="flex" justifyContent="center">
-              <VStack gap={3}>
-                <Box
-                  bg="whiteAlpha.200"
-                  backdropFilter="blur(10px)"
-                  px={6}
-                  py={3}
-                  borderRadius="full"
-                  border="1px solid"
-                  borderColor="whiteAlpha.300"
-                >
+          <Container maxW="5xl" py={{ base: 7, md: 9 }} position="relative">
+            <Flex justify="space-between" align="flex-start" gap={3}>
+              <Box w={{ base: '0px', md: '120px' }} flexShrink={0} />
+              <VStack gap={2} flex={1}>
+                <HStack gap={3} align="center">
+                  <Text color={az.gold} fontSize="xs">◆</Text>
+                  <Text color={az.cobalt} fontSize="sm">❖</Text>
                   <Heading
                     as="h1"
-                    fontSize={{ base: '2xl', md: '4xl' }}
-                    fontWeight="black"
-                    color="white"
-                    letterSpacing="tight"
-                    textShadow="0 2px 10px rgba(0,0,0,0.2)"
+                    fontFamily={SERIF}
+                    fontWeight={600}
+                    fontSize={{ base: '3xl', md: '5xl' }}
+                    color={az.ink}
+                    letterSpacing="-0.02em"
+                    lineHeight={1.1}
                   >
-                    {dialect && <Box as="span" mr={3}><FlagIcon country={getDialectInfo().flagCode} size="1.2em" /></Box>}
-                    Portuguese Coach
+                    Fala Bem
                   </Heading>
-                </Box>
-                <VStack gap={1}>
-                  <Text
-                    color="whiteAlpha.900"
-                    fontSize={{ base: 'sm', md: 'md' }}
-                    fontWeight="medium"
-                    textShadow="0 1px 2px rgba(0,0,0,0.1)"
+                  <Text color={az.cobalt} fontSize="sm">❖</Text>
+                  <Text color={az.gold} fontSize="xs">◆</Text>
+                </HStack>
+                <Text
+                  fontSize="xs"
+                  fontWeight="semibold"
+                  textTransform="uppercase"
+                  letterSpacing="0.28em"
+                  color={az.inkSoft}
+                  textAlign="center"
+                >
+                  Portuguese pronunciation studio
+                </Text>
+                {dialect && (
+                  <HStack
+                    mt={1}
+                    px={4}
+                    py={1.5}
+                    borderWidth="1px"
+                    borderColor={accent.line}
+                    borderRadius="full"
+                    bg={accent.wash}
+                    gap={2}
                   >
-                    Master your pronunciation with AI-powered feedback
-                  </Text>
-                  {dialect && (
+                    <FlagIcon country={getDialectInfo().flagCode} size="1em" />
                     <Text
-                      color="whiteAlpha.800"
-                      fontSize={{ base: 'xs', md: 'sm' }}
-                      fontWeight="semibold"
-                      textShadow="0 1px 2px rgba(0,0,0,0.1)"
+                      fontSize="xs"
+                      fontWeight="bold"
+                      textTransform="uppercase"
+                      letterSpacing="0.12em"
+                      color={accent.fg}
                     >
                       {getDialectInfo().name}
                     </Text>
-                  )}
-                </VStack>
+                  </HStack>
+                )}
               </VStack>
-            </Box>
-            <Box flex={1} display="flex" justifyContent="flex-end" gap={2}>
-              <Button
-                onClick={() => setShowSettingsModal(true)}
-                size="md"
-                borderRadius="full"
-                bg="whiteAlpha.200"
-                backdropFilter="blur(10px)"
-                color="white"
-                border="1px solid"
-                borderColor="whiteAlpha.300"
-                _hover={{
-                  bg: 'whiteAlpha.300',
-                  transform: 'translateY(-2px)',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                }}
-                _active={{ transform: 'translateY(0)' }}
-                transition="all 0.2s"
-                fontWeight="bold"
-                fontSize="sm"
-                px={4}
-              >
-                ⚙️ Settings
-              </Button>
-              <ColorModeToggle />
-            </Box>
-          </HStack>
-        </Container>
-      </Box>
+              <HStack w={{ base: 'auto', md: '120px' }} justify="flex-end" gap={2} flexShrink={0}>
+                <Button
+                  onClick={() => setShowSettingsModal(true)}
+                  size="sm"
+                  borderRadius="full"
+                  bg="transparent"
+                  borderWidth="1px"
+                  borderColor={az.cobaltLine}
+                  color={az.inkSoft}
+                  _hover={{ bg: az.cobaltWash, color: az.cobalt }}
+                  px={3}
+                  aria-label="Open settings"
+                >
+                  ⚙
+                </Button>
+                <ColorModeToggle />
+              </HStack>
+            </Flex>
+          </Container>
+        </Box>
 
-      {/* Main Content */}
-      <Container maxW="container.lg" py={8}>
-        <VStack gap={6} align="stretch">
+        {/* Main Content */}
+        <Container maxW="4xl" py={{ base: 8, md: 12 }}>
+          <VStack gap={{ base: 6, md: 8 }} align="stretch">
 
-          {/* Practice Card */}
-          <Card.Root
-            bg={{ base: 'white', _dark: 'gray.800' }}
-            borderRadius="3xl"
-            boxShadow="0 20px 60px -10px rgba(0, 0, 0, 0.15)"
-            overflow="hidden"
-            border="1px solid"
-            borderColor={{ base: 'gray.100', _dark: 'gray.700' }}
-          >
-            <Card.Body p={0}>
+            {/* Practice Card */}
+            <Box
+              bg={az.cardBg}
+              borderWidth="1px"
+              borderColor={az.cardLine}
+              borderRadius="xl"
+              overflow="hidden"
+              boxShadow="0 18px 50px -22px rgba(23, 42, 80, 0.35)"
+            >
               {currentPhrase ? (
                 <>
-                  {/* Phrase Display */}
+                  {/* Phrase */}
                   <Box
-                    bg="linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
-                    p={{ base: 8, md: 12 }}
+                    px={{ base: 6, md: 14 }}
+                    pt={{ base: 9, md: 12 }}
+                    pb={{ base: 7, md: 9 }}
                     textAlign="center"
                     position="relative"
-                    overflow="hidden"
                   >
-                    {/* Decorative circles */}
-                    <Box
-                      position="absolute"
-                      top="-50px"
-                      right="-50px"
-                      w="200px"
-                      h="200px"
-                      borderRadius="full"
-                      bg="whiteAlpha.100"
-                    />
-                    <Box
-                      position="absolute"
-                      bottom="-30px"
-                      left="-30px"
-                      w="150px"
-                      h="150px"
-                      borderRadius="full"
-                      bg="whiteAlpha.100"
-                    />
+                    <Text position="absolute" top={4} left={5} color={accent.line} fontSize="sm">❖</Text>
+                    <Text position="absolute" top={4} right={5} color={accent.line} fontSize="sm">❖</Text>
 
-                    <HStack justifyContent="center" mb={5} gap={2} position="relative" flexWrap="wrap">
-                      <Badge
-                        size="md"
-                        borderRadius="full"
-                        px={4}
-                        py={2}
-                        bg="whiteAlpha.200"
-                        backdropFilter="blur(10px)"
-                        color="white"
+                    <HStack justify="center" gap={3} mb={5}>
+                      <Text
+                        fontSize="2xs"
                         fontWeight="bold"
-                        fontSize="xs"
                         textTransform="uppercase"
-                        letterSpacing="wider"
-                        border="1px solid"
-                        borderColor="whiteAlpha.300"
+                        letterSpacing="0.2em"
+                        color={az.inkSoft}
                       >
                         {currentPhrase.category}
-                      </Badge>
-                      <Badge
-                        colorPalette={getDifficultyColor(currentPhrase.difficulty)}
-                        size="md"
-                        borderRadius="full"
-                        px={4}
-                        py={2}
-                        textTransform="capitalize"
-                        fontWeight="bold"
-                        fontSize="xs"
-                        letterSpacing="wide"
-                        boxShadow="0 2px 8px rgba(0,0,0,0.1)"
-                      >
-                        {currentPhrase.difficulty}
-                      </Badge>
+                      </Text>
+                      <Text color={az.goldLine} fontSize="2xs">◆</Text>
+                      <HStack gap={1.5}>
+                        <Box w={1.5} h={1.5} borderRadius="full" bg={DIFFICULTY_TONE[currentPhrase.difficulty]} />
+                        <Text
+                          fontSize="2xs"
+                          fontWeight="bold"
+                          textTransform="uppercase"
+                          letterSpacing="0.2em"
+                          color={az.inkSoft}
+                        >
+                          {currentPhrase.difficulty}
+                        </Text>
+                      </HStack>
                     </HStack>
+
                     <Text
+                      fontFamily={SERIF}
                       fontSize={{ base: '3xl', md: '5xl' }}
-                      fontWeight="black"
-                      color="white"
+                      fontWeight={500}
+                      color={az.ink}
+                      lineHeight={1.2}
                       mb={4}
-                      lineHeight="1.1"
-                      textShadow="0 4px 12px rgba(0,0,0,0.2)"
-                      px={{ base: 2, md: 0 }}
-                      position="relative"
-                      letterSpacing="tight"
                     >
+                      <Box as="span" color={accent.fg}>“</Box>
                       {currentPhrase.portuguese}
+                      <Box as="span" color={accent.fg}>”</Box>
                     </Text>
                     <Text
+                      fontFamily={SERIF}
+                      fontStyle="italic"
                       fontSize={{ base: 'md', md: 'xl' }}
-                      color="whiteAlpha.900"
-                      fontWeight="semibold"
-                      mb={6}
-                      px={{ base: 2, md: 0 }}
-                      position="relative"
-                      textShadow="0 2px 4px rgba(0,0,0,0.1)"
+                      color={az.inkSoft}
                     >
                       {currentPhrase.english}
                     </Text>
-                    {(feedback.length > 0 || score !== null) && (
-                      <Button
-                        size="md"
-                        onClick={playAudio}
-                        disabled={isPlayingAudio || isRecording}
-                        bg="whiteAlpha.200"
-                        backdropFilter="blur(10px)"
-                        color="white"
-                        borderRadius="full"
-                        border="1px solid"
-                        borderColor="whiteAlpha.300"
-                        _hover={{
-                          bg: 'whiteAlpha.300',
-                          transform: 'translateY(-2px)',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        }}
-                        _active={{ transform: 'translateY(0)' }}
-                        transition="all 0.2s"
-                        fontWeight="bold"
-                        fontSize="sm"
-                        px={6}
-                        py={6}
-                        position="relative"
-                      >
-                        {isPlayingAudio ? '🔊 Playing...' : '🔊 Hear Native Pronunciation'}
-                      </Button>
+                    {showIpaDetails && currentPhrase.ipa && (
+                      <Text mt={3} fontSize="sm" color={az.inkFaint} fontFamily="mono">
+                        /{currentPhrase.ipa}/
+                      </Text>
                     )}
                   </Box>
 
+                  <TileDivider />
+
                   {/* Controls */}
-                  <Box p={{ base: 6, md: 10 }}>
+                  <Box px={{ base: 6, md: 14 }} pt={6} pb={{ base: 7, md: 9 }}>
                     <VStack gap={4}>
-                      {!(feedback.length > 0 || score !== null) && (
-                        <Button
-                          colorPalette={isRecording ? 'red' : 'blue'}
-                          width="full"
-                          size="2xl"
-                          onClick={isRecording ? stopRecording : startRecording}
-                          disabled={isLoading}
-                          borderRadius="2xl"
-                          fontSize={{ base: 'lg', md: '2xl' }}
-                          fontWeight="bold"
-                          py={{ base: 8, md: 10 }}
-                          boxShadow={
-                            isRecording
-                              ? '0 8px 24px rgba(239, 68, 68, 0.35)'
-                              : '0 8px 24px rgba(59, 130, 246, 0.35)'
-                          }
-                          _hover={{
-                            boxShadow: isRecording
-                              ? '0 12px 32px rgba(239, 68, 68, 0.45)'
-                              : '0 12px 32px rgba(59, 130, 246, 0.45)',
-                            transform: 'translateY(-3px)',
-                          }}
-                          _active={{ transform: 'translateY(-1px)' }}
-                          transition="all 0.3s cubic-bezier(0.4, 0, 0.2, 1)"
-                          position="relative"
-                          overflow="hidden"
-                          border="2px solid"
-                          borderColor={isRecording ? 'red.400' : 'blue.400'}
-                        >
-                          {isRecording && (
-                            <Box
-                              position="absolute"
-                              inset={0}
-                              bg="whiteAlpha.300"
-                              animation="pulse 1.5s ease-in-out infinite"
-                              css={{
-                                '@keyframes pulse': {
-                                  '0%, 100%': { opacity: 0.3 },
-                                  '50%': { opacity: 0.6 },
-                                },
-                              }}
-                            />
-                          )}
-                          {isRecording ? (
-                            <>
-                              <Box as="span" fontSize="3xl" mr={3} position="relative">⏹</Box>
-                              <Box as="span" position="relative" letterSpacing="wide">
-                                Stop Recording
-                              </Box>
-                            </>
-                          ) : (
-                            <>
-                              <Box as="span" fontSize="3xl" mr={3}>🎤</Box>
-                              <Box as="span" letterSpacing="wide">Record Pronunciation</Box>
-                            </>
-                          )}
-                        </Button>
-                      )}
-
                       {isRecording && (
-                        <Text
-                          fontSize="xs"
-                          color={{ base: 'gray.500', _dark: 'gray.400' }}
-                          textAlign="center"
-                          fontWeight="medium"
+                        <Box
+                          w="full"
+                          h="56px"
+                          bg={az.washBg}
+                          borderWidth="1px"
+                          borderColor={az.terraLine}
+                          borderRadius="lg"
+                          overflow="hidden"
+                          px={2}
                         >
-                          💡 Recording will automatically stop after 1.5s of silence
-                        </Text>
+                          <canvas
+                            ref={waveformCanvasRef}
+                            style={{ width: '100%', height: '100%', display: 'block' }}
+                          />
+                        </Box>
                       )}
-
-                      {(feedback.length > 0 || score !== null) && (
-                        <Button
-                          variant="outline"
-                          colorPalette="blue"
-                          width="full"
-                          size="lg"
-                          onClick={() => {
-                            setFeedback([]);
-                            setScore(null);
-                            setTranscript('');
-                            setError('');
-                            if (recordedAudioUrl) {
-                              URL.revokeObjectURL(recordedAudioUrl);
-                              setRecordedAudioUrl(null);
+                      {!hasResults ? (
+                        <Flex w="full" gap={3} direction={{ base: 'column', md: 'row' }}>
+                          <Button
+                            onClick={playAudio}
+                            disabled={isPlayingAudio || isRecording || isLoading}
+                            flex={1}
+                            size="lg"
+                            py={7}
+                            borderRadius="lg"
+                            bg="transparent"
+                            borderWidth="1.5px"
+                            borderColor={accent.line}
+                            color={accent.fg}
+                            fontWeight="bold"
+                            _hover={{ bg: accent.wash, transform: 'translateY(-2px)' }}
+                            _active={{ transform: 'translateY(0)' }}
+                            transition="all 0.25s"
+                          >
+                            {isPlayingAudio ? '♪ Playing…' : '♪ Listen first'}
+                          </Button>
+                          <Button
+                            onClick={isRecording ? stopRecording : startRecording}
+                            disabled={isLoading}
+                            flex={{ base: 1, md: 2 }}
+                            size="lg"
+                            py={7}
+                            borderRadius="lg"
+                            bg={isRecording ? SOLID.terra : SOLID.gold}
+                            color={isRecording ? '#FFF6EE' : SOLID.inkOnGold}
+                            fontWeight="bold"
+                            letterSpacing="0.03em"
+                            boxShadow={
+                              isRecording
+                                ? '0 12px 28px -10px rgba(177, 78, 44, 0.55)'
+                                : '0 12px 28px -10px rgba(205, 154, 43, 0.55)'
                             }
-                          }}
-                          disabled={isRecording || isLoading}
-                          borderRadius="xl"
-                          fontSize="md"
-                          fontWeight="semibold"
-                          py={6}
-                          borderWidth="2px"
-                          _hover={{
-                            bg: 'blue.50',
-                            transform: 'translateY(-2px)',
-                            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.2)',
-                          }}
-                          transition="all 0.2s"
-                        >
-                          <Box as="span" mr={2} fontSize="lg">🔄</Box>
-                          Try Again
-                        </Button>
+                            _hover={{
+                              bg: isRecording ? SOLID.terraHover : SOLID.goldHover,
+                              transform: 'translateY(-2px)',
+                            }}
+                            _active={{ transform: 'translateY(0)' }}
+                            transition="all 0.25s"
+                            position="relative"
+                            overflow="hidden"
+                          >
+                            {isRecording && (
+                              <Box
+                                position="absolute"
+                                inset={0}
+                                bg="whiteAlpha.300"
+                                animation="recPulse 1.5s ease-in-out infinite"
+                                css={{
+                                  '@keyframes recPulse': {
+                                    '0%, 100%': { opacity: 0.2 },
+                                    '50%': { opacity: 0.55 },
+                                  },
+                                }}
+                              />
+                            )}
+                            <Box as="span" position="relative" mr={2}>
+                              {isRecording ? '■' : '●'}
+                            </Box>
+                            <Box as="span" position="relative">
+                              {isRecording ? 'Stop recording' : 'Record your attempt'}
+                            </Box>
+                          </Button>
+                        </Flex>
+                      ) : (
+                        <Flex w="full" gap={3} direction={{ base: 'column', md: 'row' }}>
+                          <Button
+                            onClick={resetAttempt}
+                            disabled={isRecording || isLoading}
+                            flex={1}
+                            size="lg"
+                            py={7}
+                            borderRadius="lg"
+                            bg="transparent"
+                            borderWidth="1.5px"
+                            borderColor={az.goldLine}
+                            color={az.gold}
+                            fontWeight="bold"
+                            _hover={{ bg: az.goldWash, transform: 'translateY(-2px)' }}
+                            _active={{ transform: 'translateY(0)' }}
+                            transition="all 0.25s"
+                          >
+                            ↻ Try this phrase again
+                          </Button>
+                          <Button
+                            onClick={getRandomPhrase}
+                            disabled={isRecording || isLoading}
+                            flex={1}
+                            size="lg"
+                            py={7}
+                            borderRadius="lg"
+                            bg={SOLID.cobalt}
+                            color="#F5F0E2"
+                            fontWeight="bold"
+                            boxShadow="0 12px 28px -10px rgba(29, 78, 155, 0.5)"
+                            _hover={{ bg: SOLID.cobaltHover, transform: 'translateY(-2px)' }}
+                            _active={{ transform: 'translateY(0)' }}
+                            transition="all 0.25s"
+                          >
+                            Next phrase →
+                          </Button>
+                        </Flex>
                       )}
 
-                      <Button
-                        variant="ghost"
-                        colorPalette="gray"
-                        width="full"
-                        size="lg"
-                        onClick={getRandomPhrase}
-                        disabled={isRecording || isLoading}
-                        borderRadius="xl"
-                        fontSize="md"
-                        fontWeight="semibold"
-                        py={6}
-                        _hover={{
-                          bg: 'gray.100',
-                          transform: 'translateY(-2px)',
-                        }}
-                        transition="all 0.2s"
-                      >
-                        <Box as="span" mr={2} fontSize="lg">→</Box>
-                        Next Phrase
-                      </Button>
+                      {isRecording ? (
+                        <Text fontSize="xs" color={az.inkFaint}>
+                          Recording stops automatically after 1.5 seconds of silence
+                        </Text>
+                      ) : !hasResults ? (
+                        <HStack gap={4} flexWrap="wrap" justify="center">
+                          <Button
+                            onClick={getRandomPhrase}
+                            disabled={isLoading}
+                            variant="plain"
+                            size="xs"
+                            color={az.inkFaint}
+                            fontWeight="semibold"
+                            _hover={{ color: az.cobalt }}
+                          >
+                            skip this phrase →
+                          </Button>
+                        </HStack>
+                      ) : null}
                     </VStack>
                   </Box>
                 </>
               ) : (
-                <Box p={12} display="flex" justifyContent="center">
-                  <Spinner size="xl" colorPalette="blue" />
+                <Box p={16} display="flex" justifyContent="center">
+                  <Spinner size="xl" color={az.cobalt} />
                 </Box>
               )}
-            </Card.Body>
-          </Card.Root>
+            </Box>
 
-          {/* Feedback Card */}
-          <Card.Root
-            bg={{ base: 'white', _dark: 'gray.800' }}
-            borderRadius="3xl"
-            boxShadow="0 20px 60px -10px rgba(0, 0, 0, 0.15)"
-            border="1px solid"
-            borderColor={{ base: 'gray.100', _dark: 'gray.700' }}
-          >
-            <Card.Body p={{ base: 6, md: 10 }}>
-              <Box mb={8}>
-                <Heading
-                  as="h2"
-                  fontSize={{ base: 'xl', md: '3xl' }}
-                  fontWeight="black"
-                  mb={2}
-                  color={{ base: 'gray.900', _dark: 'white' }}
-                  letterSpacing="tight"
-                >
-                  Your Results
-                </Heading>
-                <Text fontSize="xs" color="purple.600" fontStyle="italic" fontWeight="medium">
-                  🎧 Scores are based on AI audio analysis of your actual pronunciation, accent, and rhythm
+            {/* Error */}
+            {error && (
+              <Box
+                p={5}
+                bg={az.terraWash}
+                borderWidth="1px"
+                borderColor={az.terraLine}
+                borderRadius="lg"
+              >
+                <Text color={az.terra} fontWeight="semibold" fontSize="sm">
+                  {error}
                 </Text>
               </Box>
+            )}
 
-              {error && (
-                <Box
-                  p={5}
-                  bg="red.50"
-                  borderRadius="xl"
-                  borderWidth="1px"
-                  borderColor="red.200"
-                  mb={6}
-                >
-                  <Text color="red.700" fontWeight="medium" fontSize="sm">
-                    {error}
+            {/* Results */}
+            {isLoading ? (
+              <Box
+                bg={az.cardBg}
+                borderWidth="1px"
+                borderColor={az.cardLine}
+                borderRadius="xl"
+                p={{ base: 10, md: 14 }}
+                boxShadow="0 18px 50px -22px rgba(23, 42, 80, 0.35)"
+              >
+                <VStack gap={4}>
+                  <Spinner size="xl" color={az.cobalt} />
+                  <Text fontFamily={SERIF} fontSize="lg" color={az.ink}>
+                    {LOADING_STEPS[loadingStep].pt}
                   </Text>
-                </Box>
-              )}
+                  <Text fontSize="sm" color={az.inkSoft}>
+                    {LOADING_STEPS[loadingStep].en}
+                  </Text>
+                  <HStack gap={1.5} mt={1}>
+                    {LOADING_STEPS.map((_, i) => (
+                      <Box
+                        key={i}
+                        w={1.5}
+                        h={1.5}
+                        borderRadius="full"
+                        bg={i <= loadingStep ? az.gold : az.cardLine}
+                        transition="background 0.3s"
+                      />
+                    ))}
+                  </HStack>
+                </VStack>
+              </Box>
+            ) : hasResults ? (
+              <Box
+                bg={az.cardBg}
+                borderWidth="1px"
+                borderColor={az.cardLine}
+                borderRadius="xl"
+                p={{ base: 6, md: 10 }}
+                boxShadow="0 18px 50px -22px rgba(23, 42, 80, 0.35)"
+              >
+                <SectionLabel pt="Os resultados" en="Your results" />
 
-              {isLoading ? (
-                <Box
-                  minH="300px"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  bg={{ base: 'gray.50', _dark: 'gray.700' }}
-                  borderRadius="xl"
-                >
-                  <VStack gap={4}>
-                    <Spinner size="xl" colorPalette="blue" />
-                    <Text color="gray.600" fontSize="md" fontWeight="medium">
-                      Analyzing your pronunciation...
-                    </Text>
-                  </VStack>
-                </Box>
-              ) : feedback.length > 0 || score !== null ? (
-                <VStack align="stretch" gap={5}>
-                  {score !== null && (
-                    <Box
-                      p={{ base: 8, md: 12 }}
-                      bg={`linear-gradient(135deg, ${getScoreColor(score)}.50 0%, ${getScoreColor(score)}.100 100%)`}
-                      borderRadius="3xl"
-                      textAlign="center"
-                      borderWidth="3px"
-                      borderColor={`${getScoreColor(score)}.300`}
-                      position="relative"
-                      overflow="hidden"
+                {/* Score medallion + verdict */}
+                {score !== null && (() => {
+                  const tone = scoreTone(score);
+                  const verdict = scoreVerdict(score);
+                  return (
+                    <Flex
+                      direction={{ base: 'column', md: 'row' }}
+                      align="center"
+                      gap={{ base: 5, md: 8 }}
+                      mb={8}
                       animation={showScoreAnimation ? 'scoreReveal 0.6s ease-out' : 'none'}
-                      boxShadow={`0 12px 32px -8px rgba(${
-                        score >= 90 ? '34, 197, 94' :
-                        score >= 80 ? '59, 130, 246' :
-                        score >= 70 ? '234, 179, 8' :
-                        score >= 60 ? '249, 115, 22' :
-                        '239, 68, 68'
-                      }, 0.3)`}
                       css={{
                         '@keyframes scoreReveal': {
-                          '0%': {
-                            opacity: 0,
-                            transform: 'scale(0.8) translateY(20px)',
-                          },
-                          '60%': {
-                            transform: 'scale(1.05)',
-                          },
-                          '100%': {
-                            opacity: 1,
-                            transform: 'scale(1) translateY(0)',
-                          },
+                          '0%': { opacity: 0, transform: 'scale(0.9) translateY(16px)' },
+                          '60%': { transform: 'scale(1.03)' },
+                          '100%': { opacity: 1, transform: 'scale(1) translateY(0)' },
                         },
                       }}
                       onAnimationEnd={() => setShowScoreAnimation(false)}
                     >
                       <Box
-                        position="absolute"
-                        top="-20px"
-                        right="-20px"
-                        fontSize="120px"
-                        opacity={0.1}
-                      >
-                        {getScoreEmoji(score)}
-                      </Box>
-                      <Text fontSize="6xl" mb={1} position="relative">
-                        {getScoreEmoji(score)}
-                      </Text>
-                      <Text
-                        fontSize="5xl"
-                        fontWeight="bold"
-                        color={`${getScoreColor(score)}.700`}
-                        mb={2}
                         position="relative"
+                        w="150px"
+                        h="150px"
+                        flexShrink={0}
+                        borderRadius="full"
+                        bg={tone.wash}
+                        borderWidth="2px"
+                        borderColor={tone.line}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
                       >
-                        {score}
-                      </Text>
-                      <Text
-                        color="gray.700"
-                        fontSize="sm"
-                        fontWeight="semibold"
-                        textTransform="uppercase"
-                        letterSpacing="wide"
-                        position="relative"
-                      >
-                        Pronunciation Score
-                      </Text>
-                    </Box>
-                  )}
-
-                  {transcript && (
-                    <Box
-                      p={6}
-                      bg="linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(147, 197, 253, 0.1) 100%)"
-                      borderRadius="2xl"
-                      borderWidth="2px"
-                      borderColor="blue.200"
-                      boxShadow="0 4px 12px rgba(59, 130, 246, 0.1)"
-                    >
-                      <HStack mb={3} gap={2}>
                         <Box
-                          w={2}
-                          h={2}
+                          position="absolute"
+                          inset="7px"
                           borderRadius="full"
-                          bg="blue.500"
-                          animation="blink 2s infinite"
-                          css={{
-                            '@keyframes blink': {
-                              '0%, 100%': { opacity: 1 },
-                              '50%': { opacity: 0.3 },
-                            },
-                          }}
+                          borderWidth="1px"
+                          borderColor={tone.line}
                         />
+                        <VStack gap={1}>
+                          <Text
+                            fontFamily={SERIF}
+                            fontSize="5xl"
+                            fontWeight={700}
+                            lineHeight={1}
+                            color={tone.fg}
+                          >
+                            {score}
+                          </Text>
+                          <Text
+                            fontSize="2xs"
+                            fontWeight="bold"
+                            textTransform="uppercase"
+                            letterSpacing="0.2em"
+                            color={tone.fg}
+                            opacity={0.75}
+                          >
+                            de 100
+                          </Text>
+                        </VStack>
+                      </Box>
+                      <Box textAlign={{ base: 'center', md: 'left' }}>
+                        <Text
+                          fontFamily={SERIF}
+                          fontSize={{ base: '2xl', md: '3xl' }}
+                          fontWeight={600}
+                          color={az.ink}
+                          mb={1}
+                        >
+                          {verdict.pt}
+                        </Text>
                         <Text
                           fontSize="xs"
-                          fontWeight="bold"
                           textTransform="uppercase"
-                          letterSpacing="wider"
-                          color="blue.700"
+                          letterSpacing="0.16em"
+                          fontWeight="bold"
+                          color={tone.fg}
+                          mb={3}
                         >
-                          What you said
+                          {verdict.en}
                         </Text>
+                        {analysis?.summary && (
+                          <Text fontSize="md" color={az.inkSoft} lineHeight="tall" maxW="440px">
+                            {filterIpaFromFeedback(analysis.summary)}
+                          </Text>
+                        )}
+                      </Box>
+                    </Flex>
+                  );
+                })()}
+
+                {/* How the score was measured */}
+                {analysis?.breakdown && (
+                  <Box mb={8}>
+                    <SectionLabel pt="Como medimos" en="How we measured it" />
+                    <Flex gap={3} direction={{ base: 'column', sm: 'row' }}>
+                      <Meter
+                        labelPt="Clareza"
+                        labelEn="Clarity"
+                        hint="Did a blind transcription hear the right words?"
+                        value={analysis.breakdown.clarity}
+                      />
+                      {analysis.breakdown.sounds !== null && (
+                        <Meter
+                          labelPt="Sons"
+                          labelEn="Sounds"
+                          hint="Your phonetics vs the target, judged blind"
+                          value={analysis.breakdown.sounds}
+                        />
+                      )}
+                      {analysis.breakdown.nativeness !== null && (
+                        <Meter
+                          labelPt="Sotaque"
+                          labelEn="vs Native"
+                          hint="Word-by-word against a native recording"
+                          value={analysis.breakdown.nativeness}
+                        />
+                      )}
+                      {analysis.breakdown.phonemes != null && (
+                        <Meter
+                          labelPt="Fonemas"
+                          labelEn="Phonemes"
+                          hint="Acoustic phoneme accuracy (forced alignment)"
+                          value={analysis.breakdown.phonemes}
+                        />
+                      )}
+                    </Flex>
+                  </Box>
+                )}
+
+                {/* Word-by-word tiles */}
+                {analysis && analysis.words.length > 0 && (
+                  <Box mb={8}>
+                    <SectionLabel pt="Palavra a palavra" en="Word by word" />
+                    <Flex wrap="wrap" gap={2} mb={3}>
+                      {analysis.words.map((w, index) => (
+                        <Box
+                          key={index}
+                          px={4}
+                          py={2}
+                          borderRadius="md"
+                          borderWidth="1.5px"
+                          fontFamily={SERIF}
+                          fontWeight={600}
+                          fontSize={{ base: 'lg', md: 'xl' }}
+                          {...WORD_TILE_STYLES[w.status]}
+                          {...(w.status !== 'good'
+                            ? {
+                                cursor: 'pointer',
+                                onClick: () => scrollToErrorCard(w.word),
+                                title: 'See how to fix this word',
+                                _hover: {
+                                  transform: 'translateY(-2px)',
+                                  boxShadow: '0 4px 12px rgba(23, 42, 80, 0.15)',
+                                },
+                                transition: 'all 0.2s',
+                              }
+                            : {})}
+                        >
+                          {w.word}
+                        </Box>
+                      ))}
+                    </Flex>
+                    <HStack gap={5} flexWrap="wrap">
+                      <HStack gap={1.5}>
+                        <Text color={az.sage} fontSize="2xs">◆</Text>
+                        <Text fontSize="xs" color={az.inkSoft}>Sounded great</Text>
                       </HStack>
-                      <Text fontSize="xl" fontWeight="semibold" color={{ base: 'gray.900', _dark: 'white' }} lineHeight="tall" mb={3}>
-                        "{transcript}"
+                      <HStack gap={1.5}>
+                        <Text color={az.ochre} fontSize="2xs">◆</Text>
+                        <Text fontSize="xs" color={az.inkSoft}>Small slip</Text>
+                      </HStack>
+                      <HStack gap={1.5}>
+                        <Text color={az.terra} fontSize="2xs">◆</Text>
+                        <Text fontSize="xs" color={az.inkSoft}>Needs work</Text>
+                      </HStack>
+                      <Text fontSize="xs" color={az.inkFaint}>
+                        · tap a flagged word to jump to its tip
                       </Text>
+                    </HStack>
+                  </Box>
+                )}
+
+                {/* Transcript + listen & compare */}
+                {transcript && (
+                  <Box
+                    mb={8}
+                    p={5}
+                    bg={az.washBg}
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    borderColor={az.cardLine}
+                  >
+                    <SectionLabel pt="O que ouvimos" en="What we heard" />
+                    <Text
+                      fontFamily={SERIF}
+                      fontStyle="italic"
+                      fontSize={{ base: 'lg', md: 'xl' }}
+                      color={az.ink}
+                      mb={4}
+                    >
+                      “{transcript}”
+                    </Text>
+                    <HStack gap={3} flexWrap="wrap">
+                      <Button
+                        onClick={playAudio}
+                        disabled={isPlayingAudio || isRecording}
+                        size="sm"
+                        borderRadius="md"
+                        bg="transparent"
+                        borderWidth="1.5px"
+                        borderColor={az.cobaltLine}
+                        color={az.cobalt}
+                        fontWeight="bold"
+                        fontSize="xs"
+                        _hover={{ bg: az.cobaltWash }}
+                      >
+                        {isPlayingAudio ? '♪ Playing…' : '♪ Native speaker'}
+                      </Button>
                       {recordedAudioUrl && (
                         <Button
                           onClick={playRecording}
-                          size="sm"
-                          borderRadius="lg"
-                          bg={{ base: 'blue.100', _dark: 'blue.900' }}
-                          color={{ base: 'blue.700', _dark: 'blue.100' }}
-                          fontWeight="semibold"
-                          fontSize="xs"
-                          px={4}
-                          py={2}
-                          _hover={{
-                            bg: { base: 'blue.200', _dark: 'blue.800' },
-                            transform: 'translateY(-1px)',
-                          }}
-                          transition="all 0.2s"
                           disabled={isPlayingRecording}
+                          size="sm"
+                          borderRadius="md"
+                          bg="transparent"
+                          borderWidth="1.5px"
+                          borderColor={az.goldLine}
+                          color={az.gold}
+                          fontWeight="bold"
+                          fontSize="xs"
+                          _hover={{ bg: az.goldWash }}
                         >
-                          {isPlayingRecording ? '▶️ Playing...' : '▶️ Hear Your Recording'}
+                          {isPlayingRecording ? '▶ Playing…' : '▶ Your recording'}
                         </Button>
                       )}
-                    </Box>
-                  )}
-
-                  {feedback.length > 0 && (
-                    <Box>
-                      <HStack mb={5} gap={2}>
-                        <Box w={1} h={6} bg="purple.500" borderRadius="full" />
-                        <Text
-                          fontSize="sm"
-                          fontWeight="bold"
-                          textTransform="uppercase"
-                          letterSpacing="wider"
-                          color="gray.700"
-                        >
-                          Feedback & Tips
-                        </Text>
-                      </HStack>
-                      <VStack align="stretch" gap={3}>
-                        {feedback.map((tip, index) => (
-                          <Box
-                            key={index}
-                            p={6}
-                            bg={{ base: 'white', _dark: 'gray.700' }}
-                            borderRadius="2xl"
-                            borderWidth="2px"
-                            borderColor={{ base: 'gray.100', _dark: 'gray.600' }}
-                            transition="all 0.3s"
-                            _hover={{
-                              bg: { base: 'linear-gradient(135deg, rgba(139, 92, 246, 0.03) 0%, rgba(196, 181, 253, 0.05) 100%)', _dark: 'gray.600' },
-                              borderColor: 'purple.200',
-                              transform: 'translateX(4px)',
-                              boxShadow: '0 4px 16px rgba(139, 92, 246, 0.1)',
-                            }}
-                            position="relative"
-                            boxShadow="0 2px 8px rgba(0, 0, 0, 0.04)"
-                          >
-                            <HStack align="start" gap={3}>
-                              <Box
-                                mt={1}
-                                w={6}
-                                h={6}
-                                borderRadius="full"
-                                bg="purple.100"
-                                display="flex"
-                                alignItems="center"
-                                justifyContent="center"
-                                flexShrink={0}
-                              >
-                                <Text fontSize="xs" fontWeight="bold" color="purple.700">
-                                  {index + 1}
-                                </Text>
-                              </Box>
-                              <Text
-                                fontSize="md"
-                                lineHeight="tall"
-                                color={{ base: 'gray.800', _dark: 'gray.100' }}
-                                fontWeight="medium"
-                              >
-                                {filterIpaFromFeedback(tip)}
-                              </Text>
-                            </HStack>
-                          </Box>
-                        ))}
-                      </VStack>
-                    </Box>
-                  )}
-                </VStack>
-              ) : (
-                <Box
-                  minH="300px"
-                  display="flex"
-                  alignItems="center"
-                  justifyContent="center"
-                  bg={{ base: 'gray.50', _dark: 'gray.700' }}
-                  borderRadius="xl"
-                >
-                  <VStack gap={4}>
-                    <Text fontSize="5xl" opacity={0.3}>🎯</Text>
-                    <Text
-                      color="gray.500"
-                      textAlign="center"
-                      fontSize="md"
-                      maxW="300px"
-                    >
-                      Record your pronunciation to receive detailed feedback
-                    </Text>
-                  </VStack>
-                </Box>
-              )}
-            </Card.Body>
-          </Card.Root>
-
-          {/* Practice Stats */}
-          {practiceHistory.length > 0 && (
-            <Card.Root
-              bg={{ base: 'white', _dark: 'gray.800' }}
-              borderRadius="3xl"
-              boxShadow="0 20px 60px -10px rgba(0, 0, 0, 0.15)"
-              border="1px solid"
-              borderColor={{ base: 'gray.100', _dark: 'gray.700' }}
-            >
-              <Card.Body p={{ base: 6, md: 10 }}>
-                <HStack mb={8} gap={3}>
-                  <Box
-                    w={1.5}
-                    h={8}
-                    bg="linear-gradient(to bottom, #667eea, #764ba2)"
-                    borderRadius="full"
-                  />
-                  <Heading
-                    as="h2"
-                    fontSize={{ base: 'xl', md: '3xl' }}
-                    fontWeight="black"
-                    color={{ base: 'gray.900', _dark: 'white' }}
-                    letterSpacing="tight"
-                  >
-                    Practice Stats
-                  </Heading>
-                </HStack>
-
-                <VStack align="stretch" gap={6}>
-                  {/* Summary Stats */}
-                  <HStack gap={{ base: 3, md: 4 }} flexWrap={{ base: 'wrap', md: 'nowrap' }}>
-                    <Box
-                      flex={1}
-                      minW={{ base: 'calc(50% - 6px)', md: 'auto' }}
-                      p={{ base: 5, md: 6 }}
-                      bg="linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 197, 253, 0.12) 100%)"
-                      borderRadius="2xl"
-                      textAlign="center"
-                      borderWidth="2px"
-                      borderColor="blue.200"
-                      boxShadow="0 4px 12px rgba(59, 130, 246, 0.1)"
-                      transition="all 0.3s"
-                      _hover={{
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 8px 20px rgba(59, 130, 246, 0.2)',
-                      }}
-                    >
-                      <Text fontSize={{ base: '3xl', md: '4xl' }} fontWeight="black" color="blue.600" mb={1}>
-                        {practiceHistory.length}
-                      </Text>
-                      <Text fontSize="xs" color="blue.700" fontWeight="bold" textTransform="uppercase" letterSpacing="wide">
-                        Total Attempts
-                      </Text>
-                    </Box>
-                    <Box
-                      flex={1}
-                      minW={{ base: 'calc(50% - 6px)', md: 'auto' }}
-                      p={{ base: 5, md: 6 }}
-                      bg="linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(134, 239, 172, 0.12) 100%)"
-                      borderRadius="2xl"
-                      textAlign="center"
-                      borderWidth="2px"
-                      borderColor="green.200"
-                      boxShadow="0 4px 12px rgba(34, 197, 94, 0.1)"
-                      transition="all 0.3s"
-                      _hover={{
-                        transform: 'translateY(-4px)',
-                        boxShadow: '0 8px 20px rgba(34, 197, 94, 0.2)',
-                      }}
-                    >
-                      <Text fontSize={{ base: '3xl', md: '4xl' }} fontWeight="black" color="green.600" mb={1}>
-                        {Math.round(
-                          practiceHistory.reduce((sum, e) => sum + e.score, 0) /
-                            practiceHistory.length
-                        )}
-                      </Text>
-                      <Text fontSize="xs" color="green.700" fontWeight="bold" textTransform="uppercase" letterSpacing="wide">
-                        Average Score
-                      </Text>
-                    </Box>
-                  </HStack>
-
-                  {/* Recent Attempts */}
-                  <Box>
-                    <HStack mb={4} gap={2}>
-                      <Box w={1} h={5} bg="gray.400" borderRadius="full" />
-                      <Text
-                        fontSize="xs"
-                        fontWeight="bold"
-                        textTransform="uppercase"
-                        letterSpacing="wider"
-                        color="gray.600"
-                      >
-                        Recent Attempts
-                      </Text>
                     </HStack>
+                    <Text fontSize="xs" color={az.inkFaint} mt={3}>
+                      Alternate between the two — focus on one highlighted word at a time.
+                    </Text>
+                  </Box>
+                )}
+
+                {/* Strengths */}
+                {analysis && analysis.strengths.length > 0 && (
+                  <Box
+                    mb={8}
+                    p={5}
+                    bg={az.sageWash}
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    borderColor={az.sageLine}
+                  >
+                    <SectionLabel pt="Acertou" en="What you nailed" />
                     <VStack align="stretch" gap={2}>
-                      {practiceHistory.slice(0, 5).map((entry, idx) => (
-                        <HStack
-                          key={idx}
-                          p={5}
-                          bg={{ base: 'white', _dark: 'gray.700' }}
-                          borderRadius="xl"
-                          justifyContent="space-between"
-                          borderWidth="2px"
-                          borderColor={{ base: 'gray.100', _dark: 'gray.600' }}
-                          transition="all 0.2s"
-                          _hover={{
-                            borderColor: 'purple.200',
-                            bg: { base: 'purple.50', _dark: 'gray.600' },
-                            transform: 'translateX(4px)',
-                          }}
-                          boxShadow="0 2px 4px rgba(0, 0, 0, 0.03)"
-                        >
-                          <Text fontSize="sm" color={{ base: 'gray.800', _dark: 'gray.100' }} flex={1} fontWeight="medium">
-                            {entry.phrase}
+                      {analysis.strengths.map((strength, index) => (
+                        <HStack key={index} align="start" gap={2.5}>
+                          <Text color={az.sage} fontSize="2xs" mt={1.5}>◆</Text>
+                          <Text fontSize="md" lineHeight="tall" color={az.ink}>
+                            {filterIpaFromFeedback(strength)}
                           </Text>
-                          <Badge
-                            colorPalette={getScoreColor(entry.score)}
-                            size="lg"
-                            borderRadius="full"
-                            px={4}
-                            py={1}
-                            fontWeight="black"
-                            fontSize="md"
-                            boxShadow="0 2px 8px rgba(0,0,0,0.1)"
-                          >
-                            {entry.score}
-                          </Badge>
                         </HStack>
                       ))}
                     </VStack>
                   </Box>
-                </VStack>
-              </Card.Body>
-            </Card.Root>
-          )}
-        </VStack>
-      </Container>
+                )}
 
-      {/* Footer */}
-      <Box mt={12} py={8} borderTopWidth="1px" borderColor={{ base: 'gray.200', _dark: 'gray.700' }} bg={{ base: 'white', _dark: 'gray.800' }}>
-        <Container maxW="container.lg">
-          <VStack gap={3}>
-            <Text fontSize="sm" color="gray.600" textAlign="center">
-              Built with AI-powered speech recognition • Helping you master Portuguese pronunciation
-            </Text>
-            <HStack gap={2} fontSize="xs" color="gray.500">
-              <Text>Press</Text>
-              <Badge size="sm" borderRadius="md" px={2} py={0.5} bg="gray.100" color="gray.700" fontWeight="bold">
-                Space
-              </Badge>
-              <Text>to record</Text>
-              <Text>•</Text>
-              <Badge size="sm" borderRadius="md" px={2} py={0.5} bg="gray.100" color="gray.700" fontWeight="bold">
-                Enter
-              </Badge>
-              <Text>for next phrase</Text>
-            </HStack>
+                {/* Perfect attempt */}
+                {analysis && analysis.errors.length === 0 && score !== null && score >= 90 && (
+                  <Box
+                    mb={8}
+                    p={5}
+                    textAlign="center"
+                    bg={az.sageWash}
+                    borderWidth="1px"
+                    borderColor={az.sageLine}
+                    borderRadius="lg"
+                  >
+                    <Text fontFamily={SERIF} fontSize="lg" fontWeight={600} color={az.sage} mb={1}>
+                      Sem erros — soou como um nativo!
+                    </Text>
+                    <Text fontSize="sm" color={az.inkSoft}>
+                      No pronunciation errors detected — that sounded native-like.
+                    </Text>
+                  </Box>
+                )}
+
+                {/* Errors */}
+                {analysis && analysis.errors.length > 0 ? (
+                  <Box>
+                    <SectionLabel pt="A melhorar" en="What to work on" />
+                    <VStack align="stretch" gap={3}>
+                      {analysis.errors.map((err, index) => (
+                        <Box
+                          key={index}
+                          id={`work-on-card-${index}`}
+                          p={5}
+                          bg={az.cardBg}
+                          borderWidth="1px"
+                          borderColor={az.cardLine}
+                          borderLeftWidth="3px"
+                          borderLeftColor={err.severity === 'major' ? SOLID.terra : SOLID.gold}
+                          borderRadius="lg"
+                          boxShadow={
+                            highlightedError === index
+                              ? '0 0 0 3px rgba(205, 154, 43, 0.55)'
+                              : 'none'
+                          }
+                          transition="box-shadow 0.4s"
+                        >
+                          <Flex justify="space-between" align="baseline" mb={3} gap={2} wrap="wrap">
+                            <HStack gap={2} align="baseline">
+                              <Text fontFamily={SERIF} fontSize="xl" fontWeight={600} color={az.ink}>
+                                {err.word}
+                              </Text>
+                              {err.sound && (
+                                <Box
+                                  px={2}
+                                  py={0.5}
+                                  bg={az.cobaltWash}
+                                  borderRadius="sm"
+                                  borderWidth="1px"
+                                  borderColor={az.cobaltLine}
+                                >
+                                  <Text fontSize="xs" fontWeight="bold" color={az.cobalt}>
+                                    “{err.sound}”
+                                  </Text>
+                                </Box>
+                              )}
+                            </HStack>
+                            <Text
+                              fontSize="2xs"
+                              fontWeight="bold"
+                              textTransform="uppercase"
+                              letterSpacing="0.16em"
+                              color={az.inkFaint}
+                            >
+                              {CATEGORY_LABELS[err.category]}
+                            </Text>
+                          </Flex>
+                          <VStack align="stretch" gap={1} mb={3}>
+                            {err.heard && (
+                              <Text fontSize="sm" color={az.inkSoft} lineHeight="tall">
+                                <Box as="span" fontWeight="bold" color={az.terra}>You said — </Box>
+                                {filterIpaFromFeedback(err.heard)}
+                              </Text>
+                            )}
+                            <Text fontSize="sm" color={az.inkSoft} lineHeight="tall">
+                              <Box as="span" fontWeight="bold" color={az.sage}>Aim for — </Box>
+                              {filterIpaFromFeedback(err.target)}
+                            </Text>
+                          </VStack>
+                          {err.tip && (
+                            <Box p={3} bg={az.cobaltWash} borderRadius="md">
+                              <Text fontSize="sm" color={az.ink} lineHeight="tall">
+                                <Box
+                                  as="span"
+                                  fontWeight="bold"
+                                  color={az.cobalt}
+                                  textTransform="uppercase"
+                                  fontSize="2xs"
+                                  letterSpacing="0.14em"
+                                  mr={2}
+                                >
+                                  Como fazer · How
+                                </Box>
+                                {filterIpaFromFeedback(err.tip)}
+                              </Text>
+                            </Box>
+                          )}
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                ) : !analysis && feedback.length > 0 ? (
+                  <Box>
+                    <SectionLabel pt="Sugestões" en="Feedback & tips" />
+                    <VStack align="stretch" gap={3}>
+                      {feedback.map((tip, index) => (
+                        <Box
+                          key={index}
+                          p={5}
+                          bg={az.cardBg}
+                          borderWidth="1px"
+                          borderColor={az.cardLine}
+                          borderLeftWidth="3px"
+                          borderLeftColor={SOLID.gold}
+                          borderRadius="lg"
+                        >
+                          <HStack align="start" gap={3}>
+                            <Text fontFamily={SERIF} fontWeight={700} color={az.gold} fontSize="md">
+                              {index + 1}.
+                            </Text>
+                            <Text fontSize="md" lineHeight="tall" color={az.ink}>
+                              {filterIpaFromFeedback(tip)}
+                            </Text>
+                          </HStack>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                ) : null}
+              </Box>
+            ) : (
+              <Box
+                p={6}
+                textAlign="center"
+                bg={az.washBg}
+                borderWidth="1px"
+                borderColor={az.cardLine}
+                borderRadius="lg"
+              >
+                <Text fontSize="sm" color={az.inkFaint}>
+                  <Box as="span" color={az.gold}>❖</Box>
+                  {'  '}Listen, then record your attempt to unlock word-by-word feedback{'  '}
+                  <Box as="span" color={az.gold}>❖</Box>
+                </Text>
+              </Box>
+            )}
+
+            {/* Practice Stats */}
+            {practiceHistory.length > 0 && (
+              <Box
+                bg={az.cardBg}
+                borderWidth="1px"
+                borderColor={az.cardLine}
+                borderRadius="xl"
+                p={{ base: 6, md: 10 }}
+                boxShadow="0 18px 50px -22px rgba(23, 42, 80, 0.35)"
+              >
+                <SectionLabel pt="O seu progresso" en="Practice stats" />
+
+                <Flex gap={4} mb={8} direction={{ base: 'column', sm: 'row' }}>
+                  <Box
+                    flex={1}
+                    p={5}
+                    bg={az.washBg}
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    borderColor={az.cardLine}
+                    textAlign="center"
+                  >
+                    <Text fontFamily={SERIF} fontSize="4xl" fontWeight={700} color={az.cobalt}>
+                      {practiceHistory.length}
+                    </Text>
+                    <Text
+                      fontSize="2xs"
+                      fontWeight="bold"
+                      textTransform="uppercase"
+                      letterSpacing="0.18em"
+                      color={az.inkSoft}
+                    >
+                      Total attempts
+                    </Text>
+                  </Box>
+                  <Box
+                    flex={1}
+                    p={5}
+                    bg={az.washBg}
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    borderColor={az.cardLine}
+                    textAlign="center"
+                  >
+                    <Text fontFamily={SERIF} fontSize="4xl" fontWeight={700} color={az.gold}>
+                      {Math.round(
+                        practiceHistory.reduce((sum, e) => sum + e.score, 0) /
+                          practiceHistory.length
+                      )}
+                    </Text>
+                    <Text
+                      fontSize="2xs"
+                      fontWeight="bold"
+                      textTransform="uppercase"
+                      letterSpacing="0.18em"
+                      color={az.inkSoft}
+                    >
+                      Average score
+                    </Text>
+                  </Box>
+                  <Box
+                    flex={1}
+                    p={5}
+                    bg={az.washBg}
+                    borderRadius="lg"
+                    borderWidth="1px"
+                    borderColor={az.cardLine}
+                    textAlign="center"
+                  >
+                    <Text fontFamily={SERIF} fontSize="4xl" fontWeight={700} color={az.sage}>
+                      {Math.max(...practiceHistory.map((e) => e.score))}
+                    </Text>
+                    <Text
+                      fontSize="2xs"
+                      fontWeight="bold"
+                      textTransform="uppercase"
+                      letterSpacing="0.18em"
+                      color={az.inkSoft}
+                    >
+                      Best score
+                    </Text>
+                  </Box>
+                </Flex>
+
+                {focusAreas.length > 0 && (
+                  <Box mb={8}>
+                    <SectionLabel pt="Áreas de foco" en="Your focus areas" />
+                    <VStack align="stretch" gap={2}>
+                      {focusAreas.map(([category, count]) => (
+                        <Box
+                          key={category}
+                          p={4}
+                          bg={az.goldWash}
+                          borderWidth="1px"
+                          borderColor={az.goldLine}
+                          borderRadius="lg"
+                        >
+                          <Flex justify="space-between" align="baseline" mb={1}>
+                            <Text fontSize="sm" fontWeight="bold" color={az.ink}>
+                              {CATEGORY_LABELS[category]}
+                            </Text>
+                            <Text fontFamily={SERIF} fontWeight={700} color={az.gold}>
+                              {count}×
+                            </Text>
+                          </Flex>
+                          <Text fontSize="xs" color={az.inkSoft} lineHeight="tall">
+                            {CATEGORY_ADVICE[category]}
+                          </Text>
+                        </Box>
+                      ))}
+                    </VStack>
+                  </Box>
+                )}
+
+                <SectionLabel pt="Tentativas recentes" en="Recent attempts" />
+                <VStack align="stretch" gap={2}>
+                  {practiceHistory.slice(0, 5).map((entry, idx) => (
+                    <Flex
+                      key={idx}
+                      p={4}
+                      justify="space-between"
+                      align="center"
+                      bg={az.washBg}
+                      borderRadius="lg"
+                      borderWidth="1px"
+                      borderColor={az.cardLine}
+                      gap={3}
+                      cursor="pointer"
+                      title="Practice this phrase again"
+                      onClick={() => practiceAgain(entry)}
+                      _hover={{
+                        borderColor: az.cobaltLine,
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 4px 12px rgba(23, 42, 80, 0.12)',
+                      }}
+                      transition="all 0.2s"
+                    >
+                      <Box flex={1} minW={0}>
+                        <Text fontFamily={SERIF} fontSize="md" color={az.ink}>
+                          {entry.phrase}
+                        </Text>
+                        <HStack gap={2} mt={1}>
+                          {entry.dialect && (
+                            <FlagIcon
+                              country={entry.dialect === 'pt-PT' ? 'PT' : 'BR'}
+                              size="0.85em"
+                            />
+                          )}
+                          <Text fontSize="2xs" color={az.inkFaint} fontWeight="semibold">
+                            {timeAgo(entry.timestamp)}
+                          </Text>
+                          <Text fontSize="2xs" color={az.inkFaint}>
+                            · tap to retry
+                          </Text>
+                        </HStack>
+                      </Box>
+                      <Text
+                        fontFamily={SERIF}
+                        fontSize="xl"
+                        fontWeight={700}
+                        color={scoreTone(entry.score).fg}
+                        flexShrink={0}
+                      >
+                        {entry.score}
+                      </Text>
+                    </Flex>
+                  ))}
+                </VStack>
+              </Box>
+            )}
           </VStack>
         </Container>
-      </Box>
+
+        {/* Footer */}
+        <Box as="footer" pb={10} pt={2}>
+          <Container maxW="4xl">
+            <TileDivider />
+            <VStack gap={3} mt={6}>
+              <Text
+                fontSize="xs"
+                textTransform="uppercase"
+                letterSpacing="0.24em"
+                fontWeight="bold"
+                color={az.inkFaint}
+              >
+                Fala Bem · fale bonito
+              </Text>
+              <HStack fontSize="xs" color={az.inkFaint} gap={2}>
+                <Key>Space</Key>
+                <Text>to record</Text>
+                <Text color={az.goldLine}>◆</Text>
+                <Key>Enter</Key>
+                <Text>for next phrase</Text>
+              </HStack>
+            </VStack>
+          </Container>
+        </Box>
       </Box>
     </>
   );

@@ -1,5 +1,6 @@
 import { Button } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
+import { az } from '../lib/azulejo';
 
 export function ColorModeToggle() {
   const [colorMode, setColorMode] = useState<'light' | 'dark'>('light');
@@ -26,25 +27,17 @@ export function ColorModeToggle() {
   return (
     <Button
       onClick={toggleColorMode}
-      size="md"
+      size="sm"
       borderRadius="full"
-      bg="whiteAlpha.200"
-      backdropFilter="blur(10px)"
-      color="white"
-      border="1px solid"
-      borderColor="whiteAlpha.300"
-      _hover={{
-        bg: 'whiteAlpha.300',
-        transform: 'translateY(-2px)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-      }}
-      _active={{ transform: 'translateY(0)' }}
-      transition="all 0.2s"
-      fontWeight="bold"
-      fontSize="sm"
-      px={4}
+      bg="transparent"
+      borderWidth="1px"
+      borderColor={az.cobaltLine}
+      color={az.inkSoft}
+      _hover={{ bg: az.cobaltWash, color: az.cobalt }}
+      px={3}
+      aria-label="Toggle color mode"
     >
-      {colorMode === 'light' ? '🌙 Dark' : '☀️ Light'}
+      {colorMode === 'light' ? '☾' : '☀'}
     </Button>
   );
 }

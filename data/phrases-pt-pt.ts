@@ -23,7 +23,7 @@ export const PHRASES_PT_PT: Phrase[] = [
   { id: 'pt20', portuguese: 'Preciso de ir ao banco agora.', english: 'I need to go to the bank now.', category: 'Daily Life', difficulty: 'easy', ipa: 'pɾəˈsi.zu də iɾ aw ˈbɐ̃.ku ɐˈgɔ.ɾɐ' },
   { id: 'pt21', portuguese: 'Já visitou Portugal antes?', english: 'Have you visited Portugal before?', category: 'Travel', difficulty: 'medium', ipa: 'ʒa vi.ziˈtow puɾ.tuˈgaɫ ˈɐ̃.təʃ' },
   { id: 'pt22', portuguese: 'A minha família mora em Lisboa.', english: 'My family lives in Lisbon.', category: 'Personal', difficulty: 'easy', ipa: 'ɐ ˈmi.ɲɐ fɐˈmi.li.ɐ ˈmɔ.ɾɐ ɐ̃j̃ liʒˈbo.ɐ' },
-  { id: 'pt23', portuguese: 'Adoro tomar o pequeno-almoço.', english: 'I love having breakfast.', category: 'Food & Dining', difficulty: 'medium', ipa: 'ɐˈdɔ.ɾu tuˈmaɾ u pəˈke.nu aɫˈmo.su' },
+  { id: 'pt23', portuguese: 'Adoro tomar o pequeno-almoço.', english: 'I love having breakfast.', category: 'Food & Dining', difficulty: 'medium', ipa: 'ɐˈdɔ.ɾu tuˈmaɾ u pəˈke.nu.aɫˈmo.su' },
   { id: 'pt24', portuguese: 'Qual é o melhor caminho para o centro?', english: 'What is the best way to downtown?', category: 'Travel', difficulty: 'medium', ipa: 'kwaɫ ɛ u məˈʎoɾ kɐˈmĩ.ɲu ˈpɐ.ɾɐ u ˈsẽ.tɾu' },
   { id: 'pt25', portuguese: 'Vou viajar na próxima semana.', english: 'I am going to travel next week.', category: 'Travel', difficulty: 'easy', ipa: 'vo vi.ɐˈʒaɾ nɐ ˈpɾɔ.si.mɐ səˈmɐ̃.nɐ' },
   { id: 'pt26', portuguese: 'Tem irmãos ou irmãs?', english: 'Do you have brothers or sisters?', category: 'Introductions', difficulty: 'easy', ipa: 'tɐ̃j̃ iɾˈmɐ̃w̃ʃ o iɾˈmɐ̃ʃ' },
